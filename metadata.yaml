@@ -3,7 +3,7 @@ name: sdcore-udr
 display-name: SD-CORE 5G UDR
 summary: A Charmed Operator for SDCORE's UDR component.
 description: |
-  A Charmed Operator for SDCORE's UDR component.
+  A Charmed Operator for SDCORE's Unified Data Repository (UDR) component.
 
 containers:
   udr:
