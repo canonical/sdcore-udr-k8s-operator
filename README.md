@@ -1,6 +1,6 @@
 # SD-CORE UDR Operator
 
-A Charmed Operator for SDCORE's UDR component. 
+A Charmed Operator for SDCORE's Unified Data Repository (UDR) component. 
 
 ## Usage
 
