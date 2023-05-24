@@ -9,10 +9,10 @@
   </a>
   <br/>
   <br/>
-  <h1>SD-CORE UDR Operator</h1>
+  <h1>SD-Core UDR Operator</h1>
 </div>
 
-A Charmed Operator for SDCORE's Unified Data Repository (UDR) component. 
+A Charmed Operator for SD-Core's Unified Data Repository (UDR) component. 
 
 ## Usage
 
