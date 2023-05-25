@@ -48,7 +48,7 @@ class TestUDROperatorCharm:
             relation1=f"{APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
         )
         await ops_test.model.add_relation(
-            relation1=f"{APPLICATION_NAME}:fivef_nrf", relation2=NRF_APPLICATION_NAME
+            relation1=f"{APPLICATION_NAME}:fiveg_nrf", relation2=NRF_APPLICATION_NAME
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
 
