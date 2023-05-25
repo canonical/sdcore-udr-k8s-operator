@@ -1,22 +1,28 @@
 name: sdcore-udr
 
-display-name: SD-CORE 5G UDR
-summary: A Charmed Operator for SDCORE's UDR component.
+display-name: SD-Core UDR
+summary: A Charmed Operator for SD-Core's UDR component.
 description: |
-  A Charmed Operator for SDCORE's Unified Data Repository (UDR) component.
+  A Charmed Operator for SD-Core's Unified Data Repository (UDR) component.
 
 containers:
   udr:
     resource: udr-image
     mounts:
       - storage: config
-        location: /etc/udr/
+        location: /free5gc/config/
+
+requires:
+  database:
+    interface: mongodb_client
+  fiveg_nrf:
+    interface: fiveg_nrf
 
 resources:
   udr-image:
     type: oci-image
-    description: OCI image for 5G udr
-    upstream-source: omecproject/5gc-udr:master-6956659
+    description: OCI image for SD-Core's UDR
+    upstream-source: omecproject/5gc-udr:master-35eb7b7
 
 storage:
   config:

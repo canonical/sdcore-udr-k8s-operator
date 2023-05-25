@@ -1,3 +1,4 @@
+PyYAML
 black
 coverage[toml]
 flake8-docstrings
