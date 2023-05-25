@@ -9,14 +9,17 @@ from ipaddress import IPv4Address
 from subprocess import check_output
 from typing import Optional, Union
 
-from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
+from charms.data_platform_libs.v0.data_interfaces import (  # type: ignore[import]
+    DatabaseCreatedEvent,
+    DatabaseRequires,
+)
 from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]  # noqa: E501
     KubernetesServicePatch,
 )
-from charms.sdcore_nrf.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
+from charms.sdcore_nrf.v0.fiveg_nrf import NRFAvailableEvent, NRFRequires  # type: ignore[import]
 from jinja2 import Environment, FileSystemLoader
 from lightkube.models.core_v1 import ServicePort
-from ops.charm import CharmBase, PebbleReadyEvent
+from ops.charm import CharmBase, PebbleReadyEvent, RelationJoinedEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer, PathError
@@ -54,14 +57,20 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_sdcore_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_sdcore_udr)
 
-    def _configure_sdcore_udr(self, event: Union[PebbleReadyEvent]) -> None:
+    def _configure_sdcore_udr(
+        self,
+        event: Union[
+            DatabaseCreatedEvent, NRFAvailableEvent, PebbleReadyEvent, RelationJoinedEvent
+        ],
+    ) -> None:
         """Main callback function of the UDR operator.
 
         Handles config changes.
         Manages pebble layer and Juju unit status.
 
         Args:
-            event: Juju event (PebbleReadyEvent)
+            event: Juju event (DatabaseCreatedEvent, NRFAvailableEvent, PebbleReadyEvent
+                or RelationJoinedEvent)
         """
         for relation in ["database", "fiveg_nrf"]:
             if not self._relation_created(relation):
@@ -91,9 +100,15 @@ class UDROperatorCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     def _generate_udr_config_file(self) -> None:
-        """Generates UDR config file based on a given template and pushes it to the workload."""
+        """Handles creation of the UDR config file.
+
+        Generates UDR config file based on a given template.
+        Pushes UDR config file to the workload.
+        Calls `_configure_udr_service` function to forcibly restart the UDR service in order
+        to fetch new config.
+        """
         content = self._render_config_file(
-            udr_ip_address=str(self._get_pod_ip()),
+            udr_ip_address=str(_get_pod_ip()),
             udr_sbi_port=UDR_SBI_PORT,
             default_database_name=DEFAULT_DATABASE_NAME,
             default_database_url=self._get_database_data()["uris"].split(",")[0],
@@ -237,7 +252,7 @@ class UDROperatorCharm(CharmBase):
             "GRPC_TRACE": "all",
             "GRPC_VERBOSITY": "debug",
             "MANAGED_BY_CONFIG_POD": "true",
-            "POD_IP": str(self._get_pod_ip()),
+            "POD_IP": str(_get_pod_ip()),
         }
 
     def _relation_created(self, relation_name: str) -> bool:
@@ -259,14 +274,14 @@ class UDROperatorCharm(CharmBase):
         """
         return self._container.exists(path=BASE_CONFIG_PATH)
 
-    @staticmethod
-    def _get_pod_ip() -> Optional[IPv4Address]:
-        """Gets the IP address of the Kubernetes pod.
 
-        Returns:
-            Optional[IPv4Address]: IP address of the Kubernetes pod.
-        """
-        return IPv4Address(check_output(["unit-get", "private-address"]).decode().strip())
+def _get_pod_ip() -> Optional[IPv4Address]:
+    """Gets the IP address of the Kubernetes pod.
+
+    Returns:
+        Optional[IPv4Address]: IP address of the Kubernetes pod.
+    """
+    return IPv4Address(check_output(["unit-get", "private-address"]).decode().strip())
 
 
 if __name__ == "__main__":
