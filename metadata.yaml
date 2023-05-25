@@ -7,7 +7,7 @@ description: |
 
 containers:
   udr:
-    resource: udr-image
+    resource: sdcore-udr-image
     mounts:
       - storage: config
         location: /free5gc/config/
@@ -19,7 +19,7 @@ requires:
     interface: fiveg_nrf
 
 resources:
-  udr-image:
+  sdcore-udr-image:
     type: oci-image
     description: OCI image for SD-Core's UDR
     upstream-source: omecproject/5gc-udr:master-35eb7b7
