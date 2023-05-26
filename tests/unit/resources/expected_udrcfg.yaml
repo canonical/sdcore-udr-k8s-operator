@@ -1,0 +1,25 @@
+info:
+  version: 1.0.0
+  description: UDR initial local configuration (https://github.com/free5gc/free5gc/blob/main/config/udrcfg.yaml)
+
+configuration:
+  sbi: # Service-based interface information
+    scheme: http # the protocol for sbi (http or https)
+    registerIPv4: 1.2.3.4
+    bindingIPv4: 1.2.3.4
+    port: 29504
+    tls: # the local path of TLS key
+      pem: config/TLS/udr.pem # UDR TLS Certificate
+      key: config/TLS/udr.key # UDR TLS Private key
+  mongodb:
+    name: free5gc
+    url: http://dummy
+  nrfUri: http://nrf:8081
+
+# the kind of log output
+# debugLevel: how detailed to output, value: trace, debug, info, warn, error, fatal, panic
+# ReportCaller: enable the caller report or not, value: true or false
+logger:
+  UDR:
+    debugLevel: info
+    ReportCaller: false
