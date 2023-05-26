@@ -7,19 +7,16 @@
 import logging
 from ipaddress import IPv4Address
 from subprocess import check_output
-from typing import Optional, Union
+from typing import Optional
 
-from charms.data_platform_libs.v0.data_interfaces import (  # type: ignore[import]
-    DatabaseCreatedEvent,
-    DatabaseRequires,
-)
+from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
 from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]  # noqa: E501
     KubernetesServicePatch,
 )
-from charms.sdcore_nrf.v0.fiveg_nrf import NRFAvailableEvent, NRFRequires  # type: ignore[import]
+from charms.sdcore_nrf.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
 from jinja2 import Environment, FileSystemLoader
 from lightkube.models.core_v1 import ServicePort
-from ops.charm import CharmBase, PebbleReadyEvent, RelationJoinedEvent
+from ops.charm import CharmBase, EventBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer, PathError
@@ -57,20 +54,14 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_sdcore_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_sdcore_udr)
 
-    def _configure_sdcore_udr(
-        self,
-        event: Union[
-            DatabaseCreatedEvent, NRFAvailableEvent, PebbleReadyEvent, RelationJoinedEvent
-        ],
-    ) -> None:
+    def _configure_sdcore_udr(self, event: EventBase) -> None:
         """Main callback function of the UDR operator.
 
         Handles config changes.
         Manages pebble layer and Juju unit status.
 
         Args:
-            event: Juju event (DatabaseCreatedEvent, NRFAvailableEvent, PebbleReadyEvent
-                or RelationJoinedEvent)
+            event: Juju event
         """
         for relation in ["database", "fiveg_nrf"]:
             if not self._relation_created(relation):
