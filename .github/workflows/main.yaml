@@ -20,6 +20,8 @@ jobs:
 
   integration-test:
     uses: canonical/sdcore-github-workflows/.github/workflows/integration-test.yaml@main
+    with:
+      charm-file-name: "sdcore-udr_ubuntu-22.04-amd64.charm"
 
   publish-charm:
     name: Publish Charm
