@@ -32,4 +32,6 @@ jobs:
       - integration-test
     if: ${{ github.ref_name == 'main' }}
     uses: canonical/sdcore-github-workflows/.github/workflows/publish-charm.yaml@main
+    with:
+      charm-file-name: "sdcore-udr_ubuntu-22.04-amd64.charm"
     secrets: inherit
