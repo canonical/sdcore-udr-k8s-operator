@@ -275,5 +275,5 @@ def _get_pod_ip() -> Optional[IPv4Address]:
     return IPv4Address(check_output(["unit-get", "private-address"]).decode().strip())
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main(UDROperatorCharm)

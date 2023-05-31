@@ -28,11 +28,7 @@ class TestUDROperatorCharm:
     @pytest.mark.abort_on_fail
     async def build_and_deploy_charm(self, ops_test):
         charm = await ops_test.build_charm(".")
-        resources = {
-            f"{APPLICATION_NAME}-image": METADATA["resources"][f"{APPLICATION_NAME}-image"][
-                "upstream-source"
-            ],
-        }
+        resources = {"udr-image": METADATA["resources"]["udr-image"]["upstream-source"]}
         await ops_test.model.deploy(
             charm,
             resources=resources,
