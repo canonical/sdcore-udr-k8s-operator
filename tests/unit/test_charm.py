@@ -327,3 +327,28 @@ class TestCharm(unittest.TestCase):
             self.harness.model.unit.status,
             ActiveStatus(),
         )
+
+    @patch("charm.check_output")
+    @patch("ops.model.Container.exists")
+    @patch("charms.sdcore_nrf.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
+    @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
+    def test_given_ip_not_available_when_pebble_ready_then_status_is_waiting(
+        self,
+        patched_is_resource_created,
+        patched_nrf_url,
+        patched_exists,
+        patched_check_output,
+    ):
+        patched_exists.return_value = True
+        patched_check_output.return_value = "".encode()
+        patched_is_resource_created.return_value = True
+        patched_nrf_url.return_value = "http://nrf:8081"
+        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self._database_is_available()
+
+        self.harness.container_pebble_ready("udr")
+
+        self.assertEqual(
+            self.harness.model.unit.status,
+            WaitingStatus("Waiting for pod IP address to be available"),
+        )

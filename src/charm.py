@@ -86,6 +86,10 @@ class UDROperatorCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for the storage to be attached")
             event.defer()
             return
+        if not _get_pod_ip():
+            self.unit.status = WaitingStatus("Waiting for pod IP address to be available")
+            event.defer()
+            return
         self._generate_udr_config_file()
         self._configure_udr_service()
         self.unit.status = ActiveStatus()
@@ -99,7 +103,7 @@ class UDROperatorCharm(CharmBase):
         to fetch new config.
         """
         content = self._render_config_file(
-            udr_ip_address=str(_get_pod_ip()),
+            udr_ip_address=_get_pod_ip(),  # type: ignore[arg-type]
             udr_sbi_port=UDR_SBI_PORT,
             default_database_name=DEFAULT_DATABASE_NAME,
             default_database_url=self._get_database_data()["uris"].split(",")[0],
@@ -243,7 +247,7 @@ class UDROperatorCharm(CharmBase):
             "GRPC_TRACE": "all",
             "GRPC_VERBOSITY": "debug",
             "MANAGED_BY_CONFIG_POD": "true",
-            "POD_IP": str(_get_pod_ip()),
+            "POD_IP": _get_pod_ip(),
         }
 
     def _relation_created(self, relation_name: str) -> bool:
@@ -266,13 +270,14 @@ class UDROperatorCharm(CharmBase):
         return self._container.exists(path=BASE_CONFIG_PATH)
 
 
-def _get_pod_ip() -> Optional[IPv4Address]:
-    """Gets the IP address of the Kubernetes pod.
+def _get_pod_ip() -> Optional[str]:
+    """Returns the pod IP using juju client.
 
     Returns:
-        Optional[IPv4Address]: IP address of the Kubernetes pod.
+        str: The pod IP.
     """
-    return IPv4Address(check_output(["unit-get", "private-address"]).decode().strip())
+    ip_address = check_output(["unit-get", "private-address"])
+    return str(IPv4Address(ip_address.decode().strip())) if ip_address else None
 
 
 if __name__ == "__main__":  # pragma: no cover
