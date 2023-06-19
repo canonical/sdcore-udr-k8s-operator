@@ -22,7 +22,7 @@ resources:
   udr-image:
     type: oci-image
     description: OCI image for SD-Core's UDR
-    upstream-source: omecproject/5gc-udr:master-35eb7b7
+    upstream-source: ghcr.io/canonical/sdcore-udr:1.3
 
 storage:
   config:

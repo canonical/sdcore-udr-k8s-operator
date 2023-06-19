@@ -226,7 +226,7 @@ class UDROperatorCharm(CharmBase):
                     self._service_name: {
                         "override": "replace",
                         "startup": "enabled",
-                        "command": "/free5gc/udr/udr "
+                        "command": "/bin/udr "
                         f"-udrcfg {BASE_CONFIG_PATH}/{UDR_CONFIG_FILE_NAME}",
                         "environment": self._environment_variables,
                     }
