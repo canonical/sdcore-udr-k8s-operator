@@ -27,4 +27,4 @@ juju integrate sdcore-nrf sdcore-udr:fiveg_nrf
 
 ## Image
 
-- **udr**: `omecproject/5gc-udr:master-6956659`
+- **udr**: `ghcr.io/canonical/sdcore-udr:1.3`

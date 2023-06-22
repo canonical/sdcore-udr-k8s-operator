@@ -15,7 +15,7 @@ TEST_PEBBLE_LAYER = {
         "udr": {
             "override": "replace",
             "startup": "enabled",
-            "command": "/free5gc/udr/udr -udrcfg /free5gc/config/udrcfg.yaml",
+            "command": "/bin/udr -udrcfg /free5gc/config/udrcfg.yaml",
             "environment": {
                 "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
                 "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
