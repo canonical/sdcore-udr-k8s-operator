@@ -15,6 +15,7 @@ APPLICATION_NAME = METADATA["name"]
 
 DB_APPLICATION_NAME = "mongodb-k8s"
 NRF_APPLICATION_NAME = "sdcore-nrf"
+TLS_PROVIDER_CHARM_NAME = "self-signed-certificates"
 
 
 class TestUDROperatorCharm:
@@ -23,6 +24,7 @@ class TestUDROperatorCharm:
     async def setup(self, ops_test):
         await self._deploy_mongodb(ops_test)
         await self._deploy_sdcore_nrf_operator(ops_test)
+        await self._deploy_tls_provider(ops_test)
 
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
@@ -36,18 +38,6 @@ class TestUDROperatorCharm:
             trust=True,
         )
 
-    async def test_wait_for_blocked_status(self, ops_test, setup, build_and_deploy_charm):
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=1000)
-
-    async def test_relate_and_wait_for_idle(self, ops_test, setup, build_and_deploy_charm):
-        await ops_test.model.add_relation(
-            relation1=f"{APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
-        )
-        await ops_test.model.add_relation(
-            relation1=f"{APPLICATION_NAME}:fiveg_nrf", relation2=NRF_APPLICATION_NAME
-        )
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
-
     @staticmethod
     async def _deploy_mongodb(ops_test):
         await ops_test.model.deploy(
@@ -55,6 +45,14 @@ class TestUDROperatorCharm:
             application_name=DB_APPLICATION_NAME,
             channel="5/edge",
             trust=True,
+        )
+
+    @staticmethod
+    async def _deploy_tls_provider(ops_test):
+        await ops_test.model.deploy(
+            TLS_PROVIDER_CHARM_NAME,
+            application_name=TLS_PROVIDER_CHARM_NAME,
+            channel="edge",
         )
 
     @staticmethod
@@ -68,3 +66,19 @@ class TestUDROperatorCharm:
         await ops_test.model.add_relation(
             relation1=DB_APPLICATION_NAME, relation2=NRF_APPLICATION_NAME
         )
+
+    async def test_wait_for_blocked_status(self, ops_test, setup, build_and_deploy_charm):
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=1000)
+
+    async def test_relate_and_wait_for_idle(self, ops_test, setup, build_and_deploy_charm):
+        await ops_test.model.add_relation(
+            relation1=f"{APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
+        )
+        await ops_test.model.add_relation(
+            relation1=f"{APPLICATION_NAME}:fiveg_nrf", relation2=NRF_APPLICATION_NAME
+        )
+        await ops_test.model.add_relation(
+            relation1=f"{APPLICATION_NAME}:certificates",
+            relation2=f"{TLS_PROVIDER_CHARM_NAME}:certificates",
+        )
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)

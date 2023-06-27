@@ -4,13 +4,10 @@ info:
 
 configuration:
   sbi: # Service-based interface information
-    scheme: http # the protocol for sbi (http or https)
+    scheme: http
     registerIPv4: 1.2.3.4
     bindingIPv4: 0.0.0.0
     port: 29504
-    tls: # the local path of TLS key
-      pem: config/TLS/udr.pem # UDR TLS Certificate
-      key: config/TLS/udr.key # UDR TLS Private key
   mongodb:
     name: free5gc
     url: http://dummy

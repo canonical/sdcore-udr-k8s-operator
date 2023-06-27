@@ -4,3 +4,5 @@ lightkube-models
 ops
 pydantic
 pytest-interface-tester
+jsonschema
+cryptography

@@ -4,13 +4,10 @@ info:
 
 configuration:
   sbi: # Service-based interface information
-    scheme: http # the protocol for sbi (http or https)
+    scheme: {{ scheme }}
     registerIPv4: {{ udr_ip_address }}
     bindingIPv4: 0.0.0.0
     port: {{ udr_sbi_port }}
-    tls: # the local path of TLS key
-      pem: config/TLS/udr.pem # UDR TLS Certificate
-      key: config/TLS/udr.key # UDR TLS Private key
   mongodb:
     name: {{ default_database_name }}
     url: {{ default_database_url }}
