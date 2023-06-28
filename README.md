@@ -25,6 +25,13 @@ juju integrate mongodb-k8s sdcore-udr:database
 juju integrate sdcore-nrf sdcore-udr:fiveg_nrf
 ```
 
+## Optional
+
+```bash
+juju deploy self-signed-certificates --channel=edge
+juju integrate sdcore-udr:certificates self-signed-certificates:certificates
+```
+
 ## Image
 
 - **udr**: `ghcr.io/canonical/sdcore-udr:1.3`
