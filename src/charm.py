@@ -63,6 +63,7 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(self._database.on.database_created, self._configure_udr)
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_udr)
+        self.framework.observe(self._nrf.on.nrf_broken, self._on_nrf_broken)
         self.framework.observe(
             self.on.certificates_relation_created, self._on_certificates_relation_created
         )
@@ -118,6 +119,14 @@ class UDROperatorCharm(CharmBase):
         self._generate_udr_config_file()
         self._configure_udr_service()
         self.unit.status = ActiveStatus()
+
+    def _on_nrf_broken(self, event: EventBase) -> None:
+        """Event handler for NRF relation broken.
+
+        Args:
+            event (NRFBrokenEvent): Juju event
+        """
+        self.unit.status = BlockedStatus("Waiting for fiveg_nrf relation")
 
     def _on_certificates_relation_created(self, event: EventBase) -> None:
         """Generates Private key."""
