@@ -23,7 +23,7 @@ class TestUDROperatorCharm:
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
     async def setup(self, ops_test: OpsTest):
-        await ops_test.model.set_config({"update-status-hook-interval": "5s"})
+        await ops_test.model.set_config({"update-status-hook-interval": "5s"})  # type: ignore[union-attr]  # noqa: E501
         await self._deploy_mongodb(ops_test)
         await self._deploy_sdcore_nrf_operator(ops_test)
         await self._deploy_tls_provider(ops_test)
