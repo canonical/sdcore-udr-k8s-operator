@@ -55,6 +55,16 @@ class TestCharm(unittest.TestCase):
             },
         )
 
+    def _create_certificates_relation(self) -> int:
+        """Creates certificates relation.
+
+        Returns:
+            int: relation id.
+        """
+        return self.harness.add_relation(
+            relation_name="certificates", remote_app="tls-certificates-operator"
+        )
+
     def test_given_database_relation_not_created_when_pebble_ready_then_status_is_blocked(self):
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self.harness.container_pebble_ready("udr")
@@ -69,6 +79,17 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus("Waiting for the `fiveg_nrf` relation to be created"),
+        )
+
+    def test_given_certificates_relation_not_created_when_pebble_ready_then_status_is_blocked(
+        self,
+    ):
+        self.harness.add_relation(relation_name="database", remote_app="some_db_app")
+        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self.harness.container_pebble_ready("udr")
+        self.assertEqual(
+            self.harness.model.unit.status,
+            BlockedStatus("Waiting for the `certificates` relation to be created"),
         )
 
     @patch("charm.check_output")
@@ -100,6 +121,7 @@ class TestCharm(unittest.TestCase):
     ):
         self.harness.add_relation(relation_name="database", remote_app="some_db_app")
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self._create_certificates_relation()
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
@@ -113,6 +135,7 @@ class TestCharm(unittest.TestCase):
         patched_is_resource_created.return_value = True
         self.harness.add_relation(relation_name="database", remote_app="some_db_app")
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self._create_certificates_relation()
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
@@ -126,6 +149,7 @@ class TestCharm(unittest.TestCase):
         patched_is_resource_created.return_value = True
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for the NRF to be available")
@@ -140,9 +164,33 @@ class TestCharm(unittest.TestCase):
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for the storage to be attached")
+        )
+
+    @patch("charm.check_output")
+    @patch("ops.Container.push")
+    @patch("charms.sdcore_nrf.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
+    @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
+    def test_given_relations_created_and_database_available_and_nrf_available_but_certificate_not_stored_when_pebble_ready_then_then_status_is_waiting(  # noqa: E501
+        self,
+        patched_is_resource_created,
+        patched_nrf_url,
+        _,
+        patched_check_output,
+    ):
+        patched_check_output.return_value = "1.2.3.4".encode()
+        patched_is_resource_created.return_value = True
+        self.harness.charm._storage_is_attached = Mock(return_value=True)
+        patched_nrf_url.return_value = "http://nrf:8081"
+        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self._database_is_available()
+        self._create_certificates_relation()
+        self.harness.container_pebble_ready("udr")
+        self.assertEqual(
+            self.harness.model.unit.status, WaitingStatus("Waiting for certificates to be stored")
         )
 
     @patch("ops.model.Container.push")
@@ -158,12 +206,13 @@ class TestCharm(unittest.TestCase):
         patched_check_output,
         patched_push,
     ):
-        patched_exists.side_effect = [True, False]
+        patched_exists.side_effect = [True, True, True, False]
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
 
         self.harness.container_pebble_ready("udr")
 
@@ -190,13 +239,14 @@ class TestCharm(unittest.TestCase):
         patched_pull,
         patched_push,
     ):
-        patched_exists.side_effect = [True, False]
+        patched_exists.side_effect = [True, True, True, False]
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_pull.return_value = StringIO("Dummy content")
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
 
         self.harness.container_pebble_ready("udr")
 
@@ -259,6 +309,7 @@ class TestCharm(unittest.TestCase):
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
         self.harness.set_can_connect(container="udr", val=True)
         self._container.add_layer("udr", TEST_PEBBLE_LAYER, combine=True)
 
@@ -314,6 +365,7 @@ class TestCharm(unittest.TestCase):
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
 
         self.harness.container_pebble_ready("udr")
 
@@ -339,6 +391,7 @@ class TestCharm(unittest.TestCase):
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
         self.harness.container_pebble_ready("udr")
         patched_restart.assert_called_once_with("udr")
 
@@ -359,6 +412,7 @@ class TestCharm(unittest.TestCase):
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
@@ -382,6 +436,7 @@ class TestCharm(unittest.TestCase):
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self._database_is_available()
+        self._create_certificates_relation()
 
         self.harness.container_pebble_ready("udr")
 
