@@ -4,6 +4,9 @@ display-name: SD-Core UDR
 summary: A Charmed Operator for SD-Core's UDR component.
 description: |
   A Charmed Operator for SD-Core's Unified Data Repository (UDR) component.
+website: https://charmhub.io/sdcore-udr
+source: https://github.com/canonical/sdcore-udr-operator
+issues: https://github.com/canonical/sdcore-udr-operator/issues
 
 containers:
   udr:
