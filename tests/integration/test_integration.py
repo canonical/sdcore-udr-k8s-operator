@@ -25,8 +25,8 @@ class TestUDROperatorCharm:
     async def setup(self, ops_test: OpsTest):
         await ops_test.model.set_config({"update-status-hook-interval": "5s"})  # type: ignore[union-attr]  # noqa: E501
         await self._deploy_mongodb(ops_test)
-        await self._deploy_sdcore_nrf_operator(ops_test)
         await self._deploy_tls_provider(ops_test)
+        await self._deploy_sdcore_nrf_operator(ops_test)
 
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
@@ -68,6 +68,9 @@ class TestUDROperatorCharm:
         await ops_test.model.add_relation(  # type: ignore[union-attr]
             relation1=DB_APPLICATION_NAME, relation2=NRF_APPLICATION_NAME
         )
+        await ops_test.model.add_relation(  # type: ignore[union-attr]
+            relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME
+        )
 
     @pytest.mark.abort_on_fail
     async def test_wait_for_blocked_status(self, ops_test: OpsTest, setup, build_and_deploy_charm):
@@ -82,9 +85,6 @@ class TestUDROperatorCharm:
         )
         await ops_test.model.add_relation(  # type: ignore[union-attr]
             relation1=f"{APPLICATION_NAME}:fiveg_nrf", relation2=NRF_APPLICATION_NAME
-        )
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
-            relation1=f"{NRF_APPLICATION_NAME}:certificates", relation2=TLS_PROVIDER_CHARM_NAME
         )
         await ops_test.model.add_relation(  # type: ignore[union-attr]
             relation1=f"{APPLICATION_NAME}:certificates",
