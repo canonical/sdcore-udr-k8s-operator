@@ -89,7 +89,7 @@ class UDROperatorCharm(CharmBase):
         Args:
             event: Juju event
         """
-        for relation in ["database", "fiveg_nrf"]:
+        for relation in ["database", "fiveg_nrf", "certificates"]:
             if not self._relation_created(relation):
                 self.unit.status = BlockedStatus(
                     f"Waiting for the `{relation}` relation to be created"
@@ -114,6 +114,10 @@ class UDROperatorCharm(CharmBase):
             return
         if not _get_pod_ip():
             self.unit.status = WaitingStatus("Waiting for pod IP address to be available")
+            event.defer()
+            return
+        if not self._certificate_is_stored():
+            self.unit.status = WaitingStatus("Waiting for certificates to be stored")
             event.defer()
             return
         self._generate_udr_config_file()
@@ -143,7 +147,7 @@ class UDROperatorCharm(CharmBase):
         self._delete_private_key()
         self._delete_csr()
         self._delete_certificate()
-        self._configure_udr(event)
+        self.unit.status = BlockedStatus("Waiting for certificates relation")
 
     def _on_certificates_relation_joined(self, event: EventBase) -> None:
         """Generates CSR and requests new certificate."""
@@ -274,7 +278,7 @@ class UDROperatorCharm(CharmBase):
             default_database_name=DEFAULT_DATABASE_NAME,
             default_database_url=self._get_database_data()["uris"].split(",")[0],
             nrf_url=self._nrf.nrf_url,
-            scheme="https" if self._certificate_is_stored() else "http",
+            scheme="https",
         )
         if not self._config_file_content_matches(content=content):
             self._push_udr_config_file_to_workload(content=content)

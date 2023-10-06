@@ -20,15 +20,11 @@ A Charmed Operator for SD-Core's Unified Data Repository (UDR) component.
 juju deploy mongodb-k8s --trust --channel=5/edge
 juju deploy sdcore-nrf --trust --channel=edge
 juju deploy sdcore-udr --trust --channel=edge
+juju deploy self-signed-certificates --channel=beta
 juju integrate mongodb-k8s sdcore-nrf
 juju integrate mongodb-k8s sdcore-udr:database
+juju integrate sdcore-nrf:certificates self-signed-certificates:certificates
 juju integrate sdcore-nrf sdcore-udr:fiveg_nrf
-```
-
-## Optional
-
-```bash
-juju deploy self-signed-certificates --channel=edge
 juju integrate sdcore-udr:certificates self-signed-certificates:certificates
 ```
 

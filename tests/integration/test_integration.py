@@ -25,8 +25,8 @@ class TestUDROperatorCharm:
     async def setup(self, ops_test: OpsTest):
         await ops_test.model.set_config({"update-status-hook-interval": "5s"})  # type: ignore[union-attr]  # noqa: E501
         await self._deploy_mongodb(ops_test)
-        await self._deploy_sdcore_nrf_operator(ops_test)
         await self._deploy_tls_provider(ops_test)
+        await self._deploy_sdcore_nrf_operator(ops_test)
 
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
@@ -54,7 +54,7 @@ class TestUDROperatorCharm:
         await ops_test.model.deploy(  # type: ignore[union-attr]
             TLS_PROVIDER_CHARM_NAME,
             application_name=TLS_PROVIDER_CHARM_NAME,
-            channel="edge",
+            channel="beta",
         )
 
     @staticmethod
@@ -67,6 +67,9 @@ class TestUDROperatorCharm:
         )
         await ops_test.model.add_relation(  # type: ignore[union-attr]
             relation1=DB_APPLICATION_NAME, relation2=NRF_APPLICATION_NAME
+        )
+        await ops_test.model.add_relation(  # type: ignore[union-attr]
+            relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME
         )
 
     @pytest.mark.abort_on_fail
@@ -110,4 +113,27 @@ class TestUDROperatorCharm:
             relation1=f"{NRF_APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
         )
         await ops_test.model.add_relation(relation1=APPLICATION_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
+        await ops_test.model.add_relation(relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)  # type: ignore[union-attr]  # noqa: E501
+
+    @pytest.mark.abort_on_fail
+    async def test_remove_tls_and_wait_for_blocked_status(
+        self, ops_test: OpsTest, build_and_deploy_charm
+    ):
+        await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)  # type: ignore[union-attr]  # noqa: E501
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)  # type: ignore[union-attr]  # noqa: E501
+
+    @pytest.mark.abort_on_fail
+    async def test_restore_tls_and_wait_for_active_status(
+        self, ops_test: OpsTest, build_and_deploy_charm
+    ):
+        await ops_test.model.deploy(  # type: ignore[union-attr]
+            TLS_PROVIDER_CHARM_NAME,
+            application_name=TLS_PROVIDER_CHARM_NAME,
+            channel="beta",
+            trust=True,
+        )
+        await ops_test.model.add_relation(  # type: ignore[union-attr]
+            relation1=APPLICATION_NAME, relation2=TLS_PROVIDER_CHARM_NAME
+        )
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)  # type: ignore[union-attr]  # noqa: E501
