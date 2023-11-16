@@ -40,7 +40,7 @@ class TestCharm(unittest.TestCase):
         self.harness.begin()
         self._container = self.harness.model.unit.get_container("udr")
 
-    def _database_is_available(self):
+    def _database_is_available(self) -> int:
         database_relation_id = self.harness.add_relation("database", "mongodb")
         self.harness.add_relation_unit(
             relation_id=database_relation_id, remote_unit_name="mongodb/0"
@@ -54,6 +54,7 @@ class TestCharm(unittest.TestCase):
                 "uris": "http://dummy",
             },
         )
+        return database_relation_id
 
     def test_given_database_relation_not_created_when_pebble_ready_then_status_is_blocked(self):
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
@@ -104,6 +105,28 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus("Waiting for fiveg_nrf relation"),
+        )
+
+    @patch("charm.check_output")
+    @patch("ops.model.Container.exists")
+    @patch("charms.sdcore_nrf.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
+    @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
+    def test_given_udr_charm_in_active_status_when_database_relation_breaks_then_status_is_blocked(
+        self, patched_is_resource_created, patched_nrf_url, patched_exists, patched_check_output
+    ):
+        patched_exists.return_value = True
+        patched_check_output.return_value = "1.2.3.4".encode()
+        patched_is_resource_created.return_value = True
+        patched_nrf_url.return_value = "http://nrf:8081"
+        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        database_relation_id = self._database_is_available()
+        self.harness.container_pebble_ready("udr")
+
+        self.harness.remove_relation(database_relation_id)
+
+        self.assertEqual(
+            self.harness.model.unit.status,
+            BlockedStatus("Waiting for database relation"),
         )
 
     def test_given_relations_created_but_database_not_available_when_pebble_ready_then_status_is_waiting(  # noqa: E501
