@@ -127,17 +127,23 @@ class TestCharm(unittest.TestCase):
         )
 
     @patch("charm.check_output")
-    @patch("ops.model.Container.exists")
     @patch("charms.sdcore_nrf.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
     def test_given_udr_charm_in_active_status_when_database_relation_breaks_then_status_is_blocked(
-        self, patched_is_resource_created, patched_nrf_url, patched_exists, patched_check_output
+        self, patched_is_resource_created, patched_nrf_url, patched_check_output
     ):
-        patched_exists.return_value = True
+        self.harness.add_storage(storage_name="certs", attach=True)
+        self.harness.add_storage(storage_name="config", attach=True)
+        root = self.harness.get_filesystem_root("udr")
+        certificate = "whatever certificate content"
+        (root / "support/TLS/udr.pem").write_text(certificate)
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
         self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self.harness.add_relation(
+            relation_name="certificates", remote_app="tls-certificates-operator"
+        )
         database_relation_id = self._database_is_available()
         self.harness.container_pebble_ready("udr")
 
