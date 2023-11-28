@@ -10,9 +10,6 @@ from subprocess import check_output
 from typing import Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
-from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]  # noqa: E501
-    KubernetesServicePatch,
-)
 from charms.sdcore_nrf.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
 from charms.tls_certificates_interface.v2.tls_certificates import (  # type: ignore[import]
     CertificateAvailableEvent,
@@ -22,7 +19,6 @@ from charms.tls_certificates_interface.v2.tls_certificates import (  # type: ign
     generate_private_key,
 )
 from jinja2 import Environment, FileSystemLoader
-from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase, EventBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
@@ -52,10 +48,7 @@ class UDROperatorCharm(CharmBase):
         self._database = DatabaseRequires(
             self, relation_name="database", database_name=DEFAULT_DATABASE_NAME
         )
-        self._service_patcher = KubernetesServicePatch(
-            charm=self,
-            ports=[ServicePort(name="sbi", port=UDR_SBI_PORT)],
-        )
+        self.unit.set_ports(UDR_SBI_PORT)
         self._certificates = TLSCertificatesRequiresV2(self, "certificates")
 
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
