@@ -29,7 +29,6 @@ TEST_PEBBLE_LAYER = {
 
 
 class TestCharm(unittest.TestCase):
-    @patch("charm.KubernetesServicePatch", lambda charm, ports: None)
     def setUp(self):
         self.namespace = "whatever"
         self.harness = testing.Harness(UDROperatorCharm)
