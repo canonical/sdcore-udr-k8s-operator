@@ -2,7 +2,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Charmed operator for the SD-Core's UDR service."""
+"""Charmed K8s operator for the SD-Core's UDR service."""
 
 import logging
 from ipaddress import IPv4Address
@@ -37,7 +37,7 @@ CERTIFICATE_NAME = "udr.pem"
 CERTIFICATE_COMMON_NAME = "udr.sdcore"
 
 
-class UDROperatorCharm(CharmBase):
+class UDRK8sOperatorCharm(CharmBase):
     """Charm the service."""
 
     def __init__(self, *args):
@@ -463,4 +463,4 @@ def _get_pod_ip() -> Optional[str]:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main(UDROperatorCharm)
+    main(UDRK8sOperatorCharm)
