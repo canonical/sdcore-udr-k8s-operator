@@ -8,7 +8,7 @@ from unittest.mock import Mock, PropertyMock, patch
 from ops import testing
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
-from charm import UDRK8sOperatorCharm
+from charm import UDROperatorCharm
 
 TEST_PEBBLE_LAYER = {
     "services": {
@@ -32,7 +32,7 @@ TEST_PEBBLE_LAYER = {
 class TestCharm(unittest.TestCase):
     def setUp(self):
         self.namespace = "whatever"
-        self.harness = testing.Harness(UDRK8sOperatorCharm)
+        self.harness = testing.Harness(UDROperatorCharm)
         self.harness.set_model_name(name=self.namespace)
         self.addCleanup(self.harness.cleanup)
         self.harness.set_leader(is_leader=True)

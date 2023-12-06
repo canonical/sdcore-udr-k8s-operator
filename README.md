@@ -1,7 +1,7 @@
-# SD-Core UDR K8s Operator
+# SD-Core UDR Operator for K8s
 [![CharmHub Badge](https://charmhub.io/sdcore-udr-k8s/badge.svg)](https://charmhub.io/sdcore-udr-k8s)
 
-A Charmed K8s Operator for SD-Core's Unified Data Repository (UDR) component. 
+A Charmed Operator for SD-Core's Unified Data Repository (UDR) component for K8s. 
 
 ## Usage
 
