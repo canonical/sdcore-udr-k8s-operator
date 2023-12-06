@@ -6,7 +6,7 @@
 
 import logging
 from ipaddress import IPv4Address
-from subprocess import check_output
+from subprocess import CalledProcessError, check_output
 from typing import Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
@@ -455,8 +455,11 @@ def _get_pod_ip() -> Optional[str]:
     Returns:
         str: The pod IP.
     """
-    ip_address = check_output(["unit-get", "private-address"])
-    return str(IPv4Address(ip_address.decode().strip())) if ip_address else None
+    try:
+        ip_address = check_output(["unit-get", "private-address"])
+        return str(IPv4Address(ip_address.decode().strip())) if ip_address else None
+    except (CalledProcessError, ValueError):
+        return None
 
 
 if __name__ == "__main__":  # pragma: no cover
