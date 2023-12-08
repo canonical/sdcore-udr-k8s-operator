@@ -517,7 +517,7 @@ class TestCharm(unittest.TestCase):
         )
 
     @patch("charm.check_output")
-    @patch("charms.sdcore_nrf.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
+    @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
     def test_given_called_process_error_thrown_while_fetching_pod_ip_when_pebble_ready_then_status_is_waiting(  # noqa: E501
         self, patched_is_resource_created, patched_nrf_url, patched_check_output
