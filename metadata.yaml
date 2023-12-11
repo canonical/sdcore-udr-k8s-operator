@@ -1,12 +1,12 @@
-name: sdcore-udr
+name: sdcore-udr-k8s
 
-display-name: SD-Core UDR
+display-name: SD-Core UDR K8s
 summary: A Charmed Operator for SD-Core's UDR component.
 description: |
   A Charmed Operator for SD-Core's Unified Data Repository (UDR) component.
-website: https://charmhub.io/sdcore-udr
-source: https://github.com/canonical/sdcore-udr-operator
-issues: https://github.com/canonical/sdcore-udr-operator/issues
+website: https://charmhub.io/sdcore-udr-k8s
+source: https://github.com/canonical/sdcore-udr-k8s-operator
+issues: https://github.com/canonical/sdcore-udr-k8s-operator/issues
 
 containers:
   udr:

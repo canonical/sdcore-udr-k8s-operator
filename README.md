@@ -1,20 +1,20 @@
 # SD-Core UDR Operator (k8s)
-[![CharmHub Badge](https://charmhub.io/sdcore-udr/badge.svg)](https://charmhub.io/sdcore-udr)
+[![CharmHub Badge](https://charmhub.io/sdcore-udr-k8s/badge.svg)](https://charmhub.io/sdcore-udr-k8s)
 
-A Charmed Operator for SD-Core's Unified Data Repository (UDR) component. 
+A Charmed Operator for SD-Core's Unified Data Repository (UDR) component for K8s. 
 
 ## Usage
 
 ```bash
 juju deploy mongodb-k8s --trust --channel=5/edge
-juju deploy sdcore-nrf --channel=edge
-juju deploy sdcore-udr --channel=edge
+juju deploy sdcore-nrf-k8s --channel=edge
+juju deploy sdcore-udr-k8s --channel=edge
 juju deploy self-signed-certificates --channel=beta
-juju integrate mongodb-k8s sdcore-nrf
-juju integrate mongodb-k8s sdcore-udr:database
-juju integrate sdcore-nrf:certificates self-signed-certificates:certificates
-juju integrate sdcore-nrf sdcore-udr:fiveg_nrf
-juju integrate sdcore-udr:certificates self-signed-certificates:certificates
+juju integrate mongodb-k8s sdcore-nrf-k8s
+juju integrate mongodb-k8s sdcore-udr-k8s:database
+juju integrate sdcore-nrf-k8s:certificates self-signed-certificates:certificates
+juju integrate sdcore-nrf-k8s:fiveg_nrf sdcore-udr-k8s:fiveg_nrf
+juju integrate sdcore-udr-k8s:certificates self-signed-certificates:certificates
 ```
 
 ## Image
