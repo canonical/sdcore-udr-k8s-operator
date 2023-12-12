@@ -20,3 +20,4 @@ juju integrate sdcore-udr-k8s:certificates self-signed-certificates:certificates
 ## Image
 
 - **udr**: `ghcr.io/canonical/sdcore-udr:1.3`
+
