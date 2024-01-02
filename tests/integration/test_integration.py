@@ -45,7 +45,7 @@ class TestUDROperatorCharm:
         await ops_test.model.deploy(  # type: ignore[union-attr]
             DB_APPLICATION_NAME,
             application_name=DB_APPLICATION_NAME,
-            channel="6/edge",
+            channel="6/beta",
             trust=True,
         )
 
