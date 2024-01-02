@@ -15,7 +15,7 @@ METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APPLICATION_NAME = METADATA["name"]
 
 DB_APPLICATION_NAME = "mongodb-k8s"
-NRF_APPLICATION_NAME = "sdcore-nrf"
+NRF_APPLICATION_NAME = "sdcore-nrf-k8s"
 TLS_PROVIDER_CHARM_NAME = "self-signed-certificates"
 
 
@@ -137,3 +137,29 @@ class TestUDROperatorCharm:
             relation1=APPLICATION_NAME, relation2=TLS_PROVIDER_CHARM_NAME
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)  # type: ignore[union-attr]  # noqa: E501
+
+
+@pytest.mark.skip(
+    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
+)
+@pytest.mark.abort_on_fail
+async def test_remove_database_and_wait_for_blocked_status(ops_test: OpsTest, build_and_deploy):
+    assert ops_test.model
+    await ops_test.model.remove_application(DB_APPLICATION_NAME, block_until_done=True)
+    await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)
+
+
+@pytest.mark.skip(
+    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
+)
+@pytest.mark.abort_on_fail
+async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, build_and_deploy):
+    assert ops_test.model
+    await ops_test.model.deploy(
+        DB_APPLICATION_NAME,
+        application_name=DB_APPLICATION_NAME,
+        channel="5/edge",
+        trust=True,
+    )
+    await ops_test.model.integrate(relation1=APPLICATION_NAME, relation2=DB_APPLICATION_NAME)
+    await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)

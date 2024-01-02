@@ -2,18 +2,15 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Charmed operator for the SD-Core's UDR service."""
+"""Charmed operator for the SD-Core's UDR service for K8s."""
 
 import logging
 from ipaddress import IPv4Address
-from subprocess import check_output
+from subprocess import CalledProcessError, check_output
 from typing import Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
-from charms.observability_libs.v1.kubernetes_service_patch import (  # type: ignore[import]  # noqa: E501
-    KubernetesServicePatch,
-)
-from charms.sdcore_nrf.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
+from charms.sdcore_nrf_k8s.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
 from charms.tls_certificates_interface.v2.tls_certificates import (  # type: ignore[import]
     CertificateAvailableEvent,
     CertificateExpiringEvent,
@@ -22,7 +19,6 @@ from charms.tls_certificates_interface.v2.tls_certificates import (  # type: ign
     generate_private_key,
 )
 from jinja2 import Environment, FileSystemLoader
-from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase, EventBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
@@ -52,14 +48,12 @@ class UDROperatorCharm(CharmBase):
         self._database = DatabaseRequires(
             self, relation_name="database", database_name=DEFAULT_DATABASE_NAME
         )
-        self._service_patcher = KubernetesServicePatch(
-            charm=self,
-            ports=[ServicePort(name="sbi", port=UDR_SBI_PORT)],
-        )
+        self.unit.set_ports(UDR_SBI_PORT)
         self._certificates = TLSCertificatesRequiresV2(self, "certificates")
 
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
         self.framework.observe(self.on.database_relation_joined, self._configure_udr)
+        self.framework.observe(self.on.database_relation_broken, self._on_database_relation_broken)
         self.framework.observe(self._database.on.database_created, self._configure_udr)
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_udr)
@@ -132,6 +126,14 @@ class UDROperatorCharm(CharmBase):
         """
         self.unit.status = BlockedStatus("Waiting for fiveg_nrf relation")
 
+    def _on_database_relation_broken(self, event: EventBase) -> None:
+        """Event handler for database relation broken.
+
+        Args:
+            event: Juju event
+        """
+        self.unit.status = BlockedStatus("Waiting for database relation")
+
     def _on_certificates_relation_created(self, event: EventBase) -> None:
         """Generates Private key."""
         if not self._container.can_connect():
@@ -157,6 +159,9 @@ class UDROperatorCharm(CharmBase):
         if not self._private_key_is_stored():
             event.defer()
             return
+        if self._certificate_is_stored():
+            return
+
         self._request_new_certificate()
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
@@ -450,8 +455,11 @@ def _get_pod_ip() -> Optional[str]:
     Returns:
         str: The pod IP.
     """
-    ip_address = check_output(["unit-get", "private-address"])
-    return str(IPv4Address(ip_address.decode().strip())) if ip_address else None
+    try:
+        ip_address = check_output(["unit-get", "private-address"])
+        return str(IPv4Address(ip_address.decode().strip())) if ip_address else None
+    except (CalledProcessError, ValueError):
+        return None
 
 
 if __name__ == "__main__":  # pragma: no cover
