@@ -11,10 +11,10 @@ from typing import Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
 from charms.sdcore_nrf_k8s.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
-from charms.tls_certificates_interface.v2.tls_certificates import (  # type: ignore[import]
+from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
     CertificateAvailableEvent,
     CertificateExpiringEvent,
-    TLSCertificatesRequiresV2,
+    TLSCertificatesRequiresV3,
     generate_csr,
     generate_private_key,
 )
@@ -49,7 +49,7 @@ class UDROperatorCharm(CharmBase):
             self, relation_name="database", database_name=DEFAULT_DATABASE_NAME
         )
         self.unit.set_ports(UDR_SBI_PORT)
-        self._certificates = TLSCertificatesRequiresV2(self, "certificates")
+        self._certificates = TLSCertificatesRequiresV3(self, "certificates")
 
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
         self.framework.observe(self.on.database_relation_joined, self._configure_udr)
