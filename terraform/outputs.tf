@@ -6,9 +6,14 @@ output "app_name" {
   value       = juju_application.sdcore-udr-k8s.name
 }
 
-output "database_endpoint" {
-  description = "Name of the endpoint to integrate with MongoDB using mongodb_client interface."
-  value       = "database"
+output "common_database_endpoint" {
+  description = "Name of the endpoint to integrate with MongoDB for common_database using mongodb_client interface."
+  value       = "common_database"
+}
+
+output "auth_database_endpoint" {
+  description = "Name of the endpoint to integrate with MongoDB for auth_database using mongodb_client interface."
+  value       = "auth_database"
 }
 
 output "fiveg_nrf_endpoint" {

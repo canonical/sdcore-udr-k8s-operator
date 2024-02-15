@@ -10,6 +10,11 @@ from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 from charm import UDROperatorCharm
 
+COMMON_DATABASE_RELATION_NAME = "common_database"
+AUTH_DATABASE_RELATION_NAME = "auth_database"
+NRF_RELATION_NAME = "fiveg_nrf"
+TLS_RELATION_NAME = "certificates"
+
 TEST_PEBBLE_LAYER = {
     "services": {
         "udr": {
@@ -53,47 +58,101 @@ class TestCharm(unittest.TestCase):
             content = f.read()
         return content
 
-    def _database_is_available(self) -> int:
-        database_relation_id = self.harness.add_relation("database", "mongodb")
+    def _create_common_database_relation_and_populate_data(self) -> int:
+        common_database_url = "1.9.11.4:1234"
+        common_database_username = "banana"
+        common_database_password = "pizza"
+        common_database_relation_id = self.harness.add_relation(
+            COMMON_DATABASE_RELATION_NAME, "mongodb"
+        )
         self.harness.add_relation_unit(
-            relation_id=database_relation_id, remote_unit_name="mongodb/0"
+            relation_id=common_database_relation_id, remote_unit_name="mongodb/0"
         )
         self.harness.update_relation_data(
-            relation_id=database_relation_id,
+            relation_id=common_database_relation_id,
             app_or_unit="mongodb",
             key_values={
-                "username": "dummy",
-                "password": "dummy",
-                "uris": "http://dummy",
+                "username": common_database_username,
+                "password": common_database_password,
+                "uris": common_database_url,
             },
         )
-        return database_relation_id
+        return common_database_relation_id
 
-    def test_given_database_relation_not_created_when_pebble_ready_then_status_is_blocked(self):
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+    def _create_auth_database_relation_and_populate_data(self) -> int:
+        auth_database_url = "1.9.11.4:1234"
+        auth_database_username = "apple"
+        auth_database_password = "hamburger"
+        auth_database_relation_id = self.harness.add_relation(
+            AUTH_DATABASE_RELATION_NAME, "mongodb"
+        )
+        self.harness.add_relation_unit(
+            relation_id=auth_database_relation_id, remote_unit_name="mongodb/0"
+        )
+        self.harness.update_relation_data(
+            relation_id=auth_database_relation_id,
+            app_or_unit="mongodb",
+            key_values={
+                "username": auth_database_username,
+                "password": auth_database_password,
+                "uris": auth_database_url,
+            },
+        )
+        return auth_database_relation_id
+
+    def test_given_commmon_database_relation_not_created_when_pebble_ready_then_status_is_blocked(
+        self,
+    ):
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the `database` relation to be created"),
+            BlockedStatus("Waiting for the common_database relation to be created"),
+        )
+
+    def test_given_auth_database_relation_not_created_when_pebble_ready_then_status_is_blocked(
+        self,
+    ):
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self.harness.add_relation(
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="mongodb"
+        )
+        self.harness.add_relation(
+            relation_name="certificates", remote_app="ls-certificates-operator"
+        )
+        self.harness.container_pebble_ready("udr")
+        self.assertEqual(
+            self.harness.model.unit.status,
+            BlockedStatus("Waiting for the auth_database relation to be created"),
         )
 
     def test_given_fiveg_nrf_relation_not_created_when_pebble_ready_then_status_is_blocked(self):
-        self.harness.add_relation(relation_name="database", remote_app="some_db_app")
+        self.harness.add_relation(
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(
+            relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the `fiveg_nrf` relation to be created"),
+            BlockedStatus("Waiting for the fiveg_nrf relation to be created"),
         )
 
     def test_given_certificates_relation_not_created_when_pebble_ready_then_status_is_blocked(
         self,
     ):
-        self.harness.add_relation(relation_name="database", remote_app="some_db_app")
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self.harness.add_relation(
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(
+            relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the `certificates` relation to be created"),
+            BlockedStatus("Waiting for the certificates relation to be created"),
         )
 
     @patch("charm.check_output")
@@ -111,12 +170,15 @@ class TestCharm(unittest.TestCase):
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
         nrf_relation_id = self.harness.add_relation(
-            relation_name="fiveg_nrf", remote_app="some_nrf_app"
+            relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app"
         )
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
-        self._database_is_available()
+        self.harness.add_relation(relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="mongodb")
+        self.harness.add_relation(
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="mongodb"
+        )
         self.harness.container_pebble_ready("udr")
 
         self.harness.remove_relation(nrf_relation_id)
@@ -140,48 +202,59 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
-        database_relation_id = self._database_is_available()
+        self._create_auth_database_relation_and_populate_data()
+        database_relation_id = self._create_common_database_relation_and_populate_data()
         self.harness.container_pebble_ready("udr")
 
         self.harness.remove_relation(database_relation_id)
 
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for database relation"),
+            BlockedStatus("Waiting for common_database relation"),
         )
 
-    def test_given_relations_created_but_database_not_available_when_pebble_ready_then_status_is_waiting(  # noqa: E501
+    def test_given_relations_created_but_common_database_not_available_when_pebble_ready_then_status_is_waiting(  # noqa: E501
         self,
     ):
-        self.harness.add_relation(relation_name="database", remote_app="some_db_app")
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(
+            relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self.harness.add_relation(
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for the database to be available"),
+            WaitingStatus("Waiting for the common database to be available"),
         )
 
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
-    def test_give_database_info_not_available_when_pebble_ready_then_status_is_waiting(
+    def test_given_common_database_url_not_available_when_pebble_ready_then_status_is_waiting(
         self, patched_is_resource_created
     ):
         patched_is_resource_created.return_value = True
-        self.harness.add_relation(relation_name="database", remote_app="some_db_app")
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(
+            relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self.harness.add_relation(
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
             self.harness.model.unit.status,
-            WaitingStatus("Waiting for the database data to be available"),
+            WaitingStatus("Waiting for the common database url to be available"),
         )
 
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
@@ -189,10 +262,11 @@ class TestCharm(unittest.TestCase):
         self, patched_is_resource_created
     ):
         patched_is_resource_created.return_value = True
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
@@ -206,10 +280,11 @@ class TestCharm(unittest.TestCase):
     ):
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
@@ -229,10 +304,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
@@ -256,8 +332,9 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
             relation_name="certificates", remote_app="tls-certificates-operator"
         )
@@ -286,10 +363,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
 
         self.harness.container_pebble_ready("udr")
@@ -320,11 +398,12 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
-        self._database_is_available()
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
 
         self.harness.container_pebble_ready("udr")
 
@@ -352,10 +431,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.set_can_connect(container="udr", val=True)
         self._container.add_layer("udr", TEST_PEBBLE_LAYER, combine=True)
@@ -386,10 +466,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
 
         self.harness.set_can_connect(container="udr", val=True)
@@ -418,10 +499,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
 
         self.harness.container_pebble_ready("udr")
@@ -451,10 +533,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.container_pebble_ready("udr")
         patched_restart.assert_called_once_with("udr")
@@ -479,10 +562,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "1.2.3.4".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
         self.harness.container_pebble_ready("udr")
         self.assertEqual(
@@ -503,10 +587,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = "".encode()
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
 
         self.harness.container_pebble_ready("udr")
@@ -526,10 +611,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.side_effect = CalledProcessError(cmd="", returncode=123)
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = "http://nrf:8081"
-        self.harness.add_relation(relation_name="fiveg_nrf", remote_app="some_nrf_app")
-        self._database_is_available()
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
         self.harness.add_relation(
-            relation_name="certificates", remote_app="tls-certificates-operator"
+            relation_name=TLS_RELATION_NAME, remote_app="tls-certificates-operator"
         )
 
         self.harness.container_pebble_ready("udr")

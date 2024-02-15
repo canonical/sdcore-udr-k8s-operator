@@ -11,7 +11,8 @@ juju deploy sdcore-nrf-k8s --channel=edge
 juju deploy sdcore-udr-k8s --channel=edge
 juju deploy self-signed-certificates --channel=beta
 juju integrate mongodb-k8s sdcore-nrf-k8s
-juju integrate mongodb-k8s sdcore-udr-k8s:database
+juju integrate mongodb-k8s sdcore-udr-k8s:common_database
+juju integrate mongodb-k8s sdcore-udr-k8s:auth_database
 juju integrate sdcore-nrf-k8s:certificates self-signed-certificates:certificates
 juju integrate sdcore-nrf-k8s:fiveg_nrf sdcore-udr-k8s:fiveg_nrf
 juju integrate sdcore-udr-k8s:certificates self-signed-certificates:certificates
