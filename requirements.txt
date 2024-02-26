@@ -56,7 +56,7 @@ rpds-py==0.18.0
     # via
     #   jsonschema
     #   referencing
-typer==0.7.0
+typer==0.9.0
     # via pytest-interface-tester
 typing-extensions==4.10.0
     # via pydantic
