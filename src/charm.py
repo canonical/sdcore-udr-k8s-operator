@@ -19,15 +19,20 @@ from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ign
     generate_private_key,
 )
 from jinja2 import Environment, FileSystemLoader
+from ops import ActiveStatus, BlockedStatus, RelationBrokenEvent, WaitingStatus
 from ops.charm import CharmBase, EventBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer, PathError
 
 logger = logging.getLogger(__name__)
 
 BASE_CONFIG_PATH = "/free5gc/config"
-DEFAULT_DATABASE_NAME = "free5gc"
+COMMON_DATABASE_NAME = "free5gc"
+AUTH_DATABASE_NAME = "authentication"
+COMMON_DATABASE_RELATION_NAME = "common_database"
+AUTH_DATABASE_RELATION_NAME = "auth_database"
+NRF_RELATION_NAME = "fiveg_nrf"
+TLS_RELATION_NAME = "certificates"
 UDR_CONFIG_FILE_NAME = "udrcfg.yaml"
 UDR_SBI_PORT = 29504
 CERTS_DIR_PATH = "/support/TLS"  # Certificate paths are hardcoded in UDR code
@@ -44,17 +49,27 @@ class UDROperatorCharm(CharmBase):
         super().__init__(*args)
         self._container_name = self._service_name = "udr"
         self._container = self.unit.get_container(self._container_name)
-        self._nrf = NRFRequires(charm=self, relation_name="fiveg_nrf")
-        self._database = DatabaseRequires(
-            self, relation_name="database", database_name=DEFAULT_DATABASE_NAME
+        self._nrf = NRFRequires(charm=self, relation_name=NRF_RELATION_NAME)
+        self._common_database = DatabaseRequires(
+            self, relation_name=COMMON_DATABASE_RELATION_NAME, database_name=COMMON_DATABASE_NAME
+        )
+        self._auth_database = DatabaseRequires(
+            self, relation_name=AUTH_DATABASE_RELATION_NAME, database_name=AUTH_DATABASE_NAME
         )
         self.unit.set_ports(UDR_SBI_PORT)
-        self._certificates = TLSCertificatesRequiresV3(self, "certificates")
+        self._certificates = TLSCertificatesRequiresV3(self, TLS_RELATION_NAME)
 
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
-        self.framework.observe(self.on.database_relation_joined, self._configure_udr)
-        self.framework.observe(self.on.database_relation_broken, self._on_database_relation_broken)
-        self.framework.observe(self._database.on.database_created, self._configure_udr)
+        self.framework.observe(self.on.common_database_relation_joined, self._configure_udr)
+        self.framework.observe(self.on.auth_database_relation_joined, self._configure_udr)
+        self.framework.observe(
+            self.on.common_database_relation_broken, self._on_common_database_relation_broken
+        )
+        self.framework.observe(
+            self.on.auth_database_relation_broken, self._on_auth_database_relation_broken
+        )
+        self.framework.observe(self._common_database.on.database_created, self._configure_udr)
+        self.framework.observe(self._auth_database.on.database_created, self._configure_udr)
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_broken, self._on_nrf_broken)
@@ -74,6 +89,38 @@ class UDROperatorCharm(CharmBase):
             self._certificates.on.certificate_expiring, self._on_certificate_expiring
         )
 
+    def ready_to_configure(self) -> bool:
+        """Returns whether the preconditions are met to proceed with configuration."""
+        for relation in [
+            COMMON_DATABASE_RELATION_NAME,
+            AUTH_DATABASE_RELATION_NAME,
+            NRF_RELATION_NAME,
+            TLS_RELATION_NAME,
+        ]:
+            if not self._relation_created(relation):
+                self.unit.status = BlockedStatus(
+                    f"Waiting for the {relation} relation to be created"
+                )
+                return False
+        if not self._common_database_is_available():
+            self.unit.status = WaitingStatus("Waiting for the common database to be available")
+            return False
+        if not self._auth_database_is_available():
+            self.unit.status = WaitingStatus(
+                "Waiting for the authentication database to be available"
+            )
+            return False
+        if not self._get_common_database_url():
+            self.unit.status = WaitingStatus("Waiting for the common database url to be available")
+            return False
+        if not self._get_auth_database_url():
+            self.unit.status = WaitingStatus("Waiting for the auth database url to be available")
+            return False
+        if not self._nrf_is_available():
+            self.unit.status = WaitingStatus("Waiting for the NRF to be available")
+            return False
+        return True
+
     def _configure_udr(self, event: EventBase) -> None:
         """Main callback function of the UDR operator.
 
@@ -83,21 +130,7 @@ class UDROperatorCharm(CharmBase):
         Args:
             event: Juju event
         """
-        for relation in ["database", "fiveg_nrf", "certificates"]:
-            if not self._relation_created(relation):
-                self.unit.status = BlockedStatus(
-                    f"Waiting for the `{relation}` relation to be created"
-                )
-                return
-        if not self._database_is_available():
-            self.unit.status = WaitingStatus("Waiting for the database to be available")
-            return
-        if not self._get_database_data():
-            self.unit.status = WaitingStatus("Waiting for the database data to be available")
-            event.defer()
-            return
-        if not self._nrf_is_available():
-            self.unit.status = WaitingStatus("Waiting for the NRF to be available")
+        if not self.ready_to_configure():
             return
         if not self._container.can_connect():
             self.unit.status = WaitingStatus("Waiting for the container to be ready")
@@ -118,7 +151,7 @@ class UDROperatorCharm(CharmBase):
         self._configure_udr_service()
         self.unit.status = ActiveStatus()
 
-    def _on_nrf_broken(self, event: EventBase) -> None:
+    def _on_nrf_broken(self, event: RelationBrokenEvent) -> None:
         """Event handler for NRF relation broken.
 
         Args:
@@ -126,13 +159,25 @@ class UDROperatorCharm(CharmBase):
         """
         self.unit.status = BlockedStatus("Waiting for fiveg_nrf relation")
 
-    def _on_database_relation_broken(self, event: EventBase) -> None:
-        """Event handler for database relation broken.
+    def _on_common_database_relation_broken(self, event: RelationBrokenEvent) -> None:
+        """Event handler for common database relation broken.
 
         Args:
             event: Juju event
         """
-        self.unit.status = BlockedStatus("Waiting for database relation")
+        if not self.model.relations[COMMON_DATABASE_RELATION_NAME]:
+            self.unit.status = BlockedStatus(
+                f"Waiting for {COMMON_DATABASE_RELATION_NAME} relation"
+            )
+
+    def _on_auth_database_relation_broken(self, event: RelationBrokenEvent) -> None:
+        """Event handler for auth database relation broken.
+
+        Args:
+            event: Juju event
+        """
+        if not self.model.relations[AUTH_DATABASE_RELATION_NAME]:
+            self.unit.status = BlockedStatus(f"Waiting for {AUTH_DATABASE_RELATION_NAME} relation")
 
     def _on_certificates_relation_created(self, event: EventBase) -> None:
         """Generates Private key."""
@@ -141,7 +186,7 @@ class UDROperatorCharm(CharmBase):
             return
         self._generate_private_key()
 
-    def _on_certificates_relation_broken(self, event: EventBase) -> None:
+    def _on_certificates_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Deletes TLS related artifacts and reconfigures workload."""
         if not self._container.can_connect():
             event.defer()
@@ -280,8 +325,10 @@ class UDROperatorCharm(CharmBase):
         content = self._render_config_file(
             udr_ip_address=_get_pod_ip(),  # type: ignore[arg-type]
             udr_sbi_port=UDR_SBI_PORT,
-            default_database_name=DEFAULT_DATABASE_NAME,
-            default_database_url=self._get_database_data()["uris"].split(",")[0],
+            common_database_name=COMMON_DATABASE_NAME,
+            common_database_url=self._get_common_database_url(),
+            auth_database_name=AUTH_DATABASE_NAME,
+            auth_database_url=self._get_auth_database_url(),
             nrf_url=self._nrf.nrf_url,
             scheme="https",
         )
@@ -311,8 +358,10 @@ class UDROperatorCharm(CharmBase):
         *,
         udr_ip_address: str,
         udr_sbi_port: int,
-        default_database_name: str,
-        default_database_url: str,
+        common_database_name: str,
+        auth_database_name: str,
+        common_database_url: str,
+        auth_database_url: str,
         nrf_url: str,
         scheme: str,
     ) -> str:
@@ -321,8 +370,10 @@ class UDROperatorCharm(CharmBase):
         Args:
             udr_ip_address (str): UDR IP address.
             udr_sbi_port (str): UDR SBI port.
-            default_database_name (str): Database name.
-            default_database_url (str): Database URL.
+            common_database_name (str): Commmon Database name.
+            auth_database_name (str): Database name to store authentication keys.
+            common_database_url (str): Common Database URL.
+            auth_database_url (str): Authentication Database URL.
             nrf_url (str): NRF URL.
             scheme (str): SBI interface scheme ("http" or "https")
 
@@ -334,8 +385,10 @@ class UDROperatorCharm(CharmBase):
         return template.render(
             udr_ip_address=udr_ip_address,
             udr_sbi_port=udr_sbi_port,
-            default_database_name=default_database_name,
-            default_database_url=default_database_url,
+            common_database_name=common_database_name,
+            common_database_url=common_database_url,
+            auth_database_name=auth_database_name,
+            auth_database_url=auth_database_url,
             nrf_url=nrf_url,
             scheme=scheme,
         )
@@ -364,15 +417,35 @@ class UDROperatorCharm(CharmBase):
         )
         logger.info(f"Config file {UDR_CONFIG_FILE_NAME} pushed to workload.")
 
-    def _get_database_data(self) -> dict:
-        """Returns the database data.
+    def _get_common_database_url(self) -> str:
+        """Returns the common database URL.
 
         Returns:
-            dict: The database data.
+            str: The common database URL.
         """
-        if not self._database_is_available():
-            raise RuntimeError(f"Database `{DEFAULT_DATABASE_NAME}` is not available")
-        return self._database.fetch_relation_data()[self._database.relations[0].id]
+        if not self._common_database_is_available():
+            raise RuntimeError(f"Database `{COMMON_DATABASE_NAME}` is not available")
+        uris = self._common_database.fetch_relation_data()[
+            self._common_database.relations[0].id
+        ].get("uris")
+        if uris:
+            return uris.split(",")[0]
+        return ""
+
+    def _get_auth_database_url(self) -> str:
+        """Returns the authentication database URL.
+
+        Returns:
+            str: The authentication database URL.
+        """
+        if not self._auth_database_is_available():
+            raise RuntimeError(f"Database `{AUTH_DATABASE_NAME}` is not available")
+        uris = self._auth_database.fetch_relation_data()[self._auth_database.relations[0].id].get(
+            "uris"
+        )
+        if uris:
+            return uris.split(",")[0]
+        return ""
 
     def _nrf_is_available(self) -> bool:
         """Returns whether the NRF endpoint is available.
@@ -382,13 +455,21 @@ class UDROperatorCharm(CharmBase):
         """
         return bool(self._nrf.nrf_url)
 
-    def _database_is_available(self) -> bool:
-        """Returns whether database relation is available.
+    def _common_database_is_available(self) -> bool:
+        """Returns whether common database relation is available.
 
         Returns:
-            bool: Whether database relation is available.
+            bool: Whether common database relation is available.
         """
-        return bool(self._database.is_resource_created())
+        return bool(self._common_database.is_resource_created())
+
+    def _auth_database_is_available(self) -> bool:
+        """Returns whether authentication database relation is available.
+
+        Returns:
+            bool: Whether authentication database relation is available.
+        """
+        return bool(self._auth_database.is_resource_created())
 
     @property
     def _pebble_layer(self) -> Layer:

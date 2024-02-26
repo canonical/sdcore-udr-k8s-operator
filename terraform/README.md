@@ -30,12 +30,12 @@ module "sdcore-udr-k8s" {
 Create the integrations, for instance:
 
 ```text
-resource "juju_integration" "udr-db" {
+resource "juju_integration" "udr-common-db" {
   model = var.model_name
 
   application {
     name     = module.udr.app_name
-    endpoint = module.udr.database_endpoint
+    endpoint = module.udr.commmon_database_endpoint
   }
 
   application {

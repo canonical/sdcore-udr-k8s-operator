@@ -17,6 +17,10 @@ APPLICATION_NAME = METADATA["name"]
 DB_APPLICATION_NAME = "mongodb-k8s"
 NRF_APPLICATION_NAME = "sdcore-nrf-k8s"
 TLS_PROVIDER_CHARM_NAME = "self-signed-certificates"
+COMMON_DATABASE_RELATION_NAME = "common_database"
+AUTH_DATABASE_RELATION_NAME = "auth_database"
+NRF_RELATION_NAME = "fiveg_nrf"
+TLS_RELATION_NAME = "certificates"
 
 
 class TestUDROperatorCharm:
@@ -65,10 +69,10 @@ class TestUDROperatorCharm:
             channel="edge",
             trust=True,
         )
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
+        await ops_test.model.integrate(  # type: ignore[union-attr]
             relation1=DB_APPLICATION_NAME, relation2=NRF_APPLICATION_NAME
         )
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
+        await ops_test.model.integrate(  # type: ignore[union-attr]
             relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME
         )
 
@@ -80,14 +84,19 @@ class TestUDROperatorCharm:
     async def test_relate_and_wait_for_idle(
         self, ops_test: OpsTest, setup, build_and_deploy_charm
     ):
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
-            relation1=f"{APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
+        await ops_test.model.integrate(  # type: ignore[union-attr]
+            relation1=f"{APPLICATION_NAME}:{COMMON_DATABASE_RELATION_NAME}",
+            relation2=DB_APPLICATION_NAME,
         )
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
-            relation1=f"{APPLICATION_NAME}:fiveg_nrf", relation2=NRF_APPLICATION_NAME
+        await ops_test.model.integrate(  # type: ignore[union-attr]
+            relation1=f"{APPLICATION_NAME}:{AUTH_DATABASE_RELATION_NAME}",
+            relation2=DB_APPLICATION_NAME,
         )
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
-            relation1=f"{APPLICATION_NAME}:certificates",
+        await ops_test.model.integrate(  # type: ignore[union-attr]
+            relation1=f"{APPLICATION_NAME}:{NRF_RELATION_NAME}", relation2=NRF_APPLICATION_NAME
+        )
+        await ops_test.model.integrate(  # type: ignore[union-attr]
+            relation1=f"{APPLICATION_NAME}:{TLS_RELATION_NAME}",
             relation2=f"{TLS_PROVIDER_CHARM_NAME}:certificates",
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)  # type: ignore[union-attr]  # noqa: E501
@@ -109,11 +118,11 @@ class TestUDROperatorCharm:
             channel="edge",
             trust=True,
         )
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
+        await ops_test.model.integrate(  # type: ignore[union-attr]
             relation1=f"{NRF_APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
         )
-        await ops_test.model.add_relation(relation1=APPLICATION_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
-        await ops_test.model.add_relation(relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
+        await ops_test.model.integrate(relation1=APPLICATION_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
+        await ops_test.model.integrate(relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)  # type: ignore[union-attr]  # noqa: E501
 
     @pytest.mark.abort_on_fail
@@ -133,7 +142,7 @@ class TestUDROperatorCharm:
             channel="beta",
             trust=True,
         )
-        await ops_test.model.add_relation(  # type: ignore[union-attr]
+        await ops_test.model.integrate(  # type: ignore[union-attr]
             relation1=APPLICATION_NAME, relation2=TLS_PROVIDER_CHARM_NAME
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)  # type: ignore[union-attr]  # noqa: E501
@@ -161,5 +170,12 @@ async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, bu
         channel="5/edge",
         trust=True,
     )
-    await ops_test.model.integrate(relation1=APPLICATION_NAME, relation2=DB_APPLICATION_NAME)
+    await ops_test.model.integrate(
+        relation1=f"{NRF_APPLICATION_NAME}:{COMMON_DATABASE_RELATION_NAME}",
+        relation2=DB_APPLICATION_NAME,
+    )
+    await ops_test.model.integrate(
+        relation1=f"{NRF_APPLICATION_NAME}:{AUTH_DATABASE_RELATION_NAME}",
+        relation2=DB_APPLICATION_NAME,
+    )
     await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
