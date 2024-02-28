@@ -221,9 +221,7 @@ class UDROperatorCharm(CharmBase):
         Returns:
             True if update is required else False
         """
-        if self._get_existing_certificate() != provider_certificate:
-            return True
-        return False
+        return self._get_existing_certificate() != provider_certificate
 
     def _on_certificate_expiring(self, event: CertificateExpiringEvent):
         """Requests new certificate."""
