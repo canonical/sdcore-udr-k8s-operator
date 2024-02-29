@@ -12,7 +12,6 @@ from typing import Optional
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
 from charms.sdcore_nrf_k8s.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
 from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
-    CertificateAvailableEvent,
     CertificateExpiringEvent,
     TLSCertificatesRequiresV3,
     generate_csr,
@@ -58,7 +57,7 @@ class UDROperatorCharm(CharmBase):
         )
         self.unit.set_ports(UDR_SBI_PORT)
         self._certificates = TLSCertificatesRequiresV3(self, TLS_RELATION_NAME)
-
+        self.framework.observe(self.on.update_status, self._configure_udr)
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
         self.framework.observe(self.on.common_database_relation_joined, self._configure_udr)
         self.framework.observe(self.on.auth_database_relation_joined, self._configure_udr)
@@ -73,18 +72,11 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_broken, self._on_nrf_broken)
-        self.framework.observe(
-            self.on.certificates_relation_created, self._on_certificates_relation_created
-        )
-        self.framework.observe(
-            self.on.certificates_relation_joined, self._on_certificates_relation_joined
-        )
+        self.framework.observe(self.on.certificates_relation_joined, self._configure_udr)
         self.framework.observe(
             self.on.certificates_relation_broken, self._on_certificates_relation_broken
         )
-        self.framework.observe(
-            self._certificates.on.certificate_available, self._on_certificate_available
-        )
+        self.framework.observe(self._certificates.on.certificate_available, self._configure_udr)
         self.framework.observe(
             self._certificates.on.certificate_expiring, self._on_certificate_expiring
         )
@@ -137,18 +129,33 @@ class UDROperatorCharm(CharmBase):
             return
         if not self._storage_is_attached():
             self.unit.status = WaitingStatus("Waiting for the storage to be attached")
-            event.defer()
             return
         if not _get_pod_ip():
             self.unit.status = WaitingStatus("Waiting for pod IP address to be available")
-            event.defer()
             return
-        if not self._certificate_is_stored():
+
+        if not self._private_key_is_stored():
+            self._generate_private_key()
+
+        if not self._csr_is_stored():
+            self._request_new_certificate()
+
+        provider_certificate = self._get_current_provider_certificate()
+        if not provider_certificate:
             self.unit.status = WaitingStatus("Waiting for certificates to be stored")
-            event.defer()
             return
-        self._generate_udr_config_file()
-        self._configure_udr_service()
+
+        if certificate_update_required := self._is_certificate_update_required(
+            provider_certificate
+        ):
+            self._store_certificate(certificate=provider_certificate)
+
+        desired_config_file = self._generate_udr_config_file()
+        if config_update_required := self._is_config_update_required(desired_config_file):
+            self._push_udr_config_file_to_workload(content=desired_config_file)
+
+        should_restart = config_update_required or certificate_update_required
+        self._configure_pebble(restart=should_restart)
         self.unit.status = ActiveStatus()
 
     def _on_nrf_broken(self, event: RelationBrokenEvent) -> None:
@@ -179,13 +186,6 @@ class UDROperatorCharm(CharmBase):
         if not self.model.relations[AUTH_DATABASE_RELATION_NAME]:
             self.unit.status = BlockedStatus(f"Waiting for {AUTH_DATABASE_RELATION_NAME} relation")
 
-    def _on_certificates_relation_created(self, event: EventBase) -> None:
-        """Generates Private key."""
-        if not self._container.can_connect():
-            event.defer()
-            return
-        self._generate_private_key()
-
     def _on_certificates_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Deletes TLS related artifacts and reconfigures workload."""
         if not self._container.can_connect():
@@ -196,32 +196,32 @@ class UDROperatorCharm(CharmBase):
         self._delete_certificate()
         self.unit.status = BlockedStatus("Waiting for certificates relation")
 
-    def _on_certificates_relation_joined(self, event: EventBase) -> None:
-        """Generates CSR and requests new certificate."""
-        if not self._container.can_connect():
-            event.defer()
-            return
-        if not self._private_key_is_stored():
-            event.defer()
-            return
-        if self._certificate_is_stored():
-            return
+    def _get_current_provider_certificate(self) -> str | None:
+        """Compares the current certificate request to what is in the interface.
 
-        self._request_new_certificate()
+        Returns the current valid provider certificate if present
+        """
+        csr = self._get_stored_csr()
+        for provider_certificate in self._certificates.get_assigned_certificates():
+            if provider_certificate.csr == csr:
+                return provider_certificate.certificate
+        return None
 
-    def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
-        """Pushes certificate to workload and configures workload."""
-        if not self._container.can_connect():
-            event.defer()
-            return
-        if not self._csr_is_stored():
-            logger.warning("Certificate is available but no CSR is stored")
-            return
-        if event.certificate_signing_request != self._get_stored_csr():
-            logger.debug("Stored CSR doesn't match one in certificate available event")
-            return
-        self._store_certificate(event.certificate)
-        self._configure_udr(event)
+    def _get_existing_certificate(self) -> str:
+        """Returns the existing certificate if present else empty string."""
+        return self._get_stored_certificate() if self._certificate_is_stored() else ""
+
+    def _is_certificate_update_required(self, provider_certificate) -> bool:
+        """Checks the provided certificate and existing certificate.
+
+        Returns True if update is required.
+
+        Args:
+            provider_certificate: str
+        Returns:
+            True if update is required else False
+        """
+        return self._get_existing_certificate() != provider_certificate
 
     def _on_certificate_expiring(self, event: CertificateExpiringEvent):
         """Requests new certificate."""
@@ -314,15 +314,13 @@ class UDROperatorCharm(CharmBase):
         self._container.push(path=f"{CERTS_DIR_PATH}/{CSR_NAME}", source=csr.decode().strip())
         logger.info("Pushed CSR to workload")
 
-    def _generate_udr_config_file(self) -> None:
-        """Handles creation of the UDR config file.
+    def _generate_udr_config_file(self) -> str:
+        """Handles creation of the UDR config file based on a given template.
 
-        Generates UDR config file based on a given template.
-        Pushes UDR config file to the workload.
-        Calls `_configure_udr_service` function to forcibly restart the UDR service in order
-        to fetch new config.
+        Returns:
+            content (str): desired config file content
         """
-        content = self._render_config_file(
+        return self._render_config_file(
             udr_ip_address=_get_pod_ip(),  # type: ignore[arg-type]
             udr_sbi_port=UDR_SBI_PORT,
             common_database_name=COMMON_DATABASE_NAME,
@@ -332,26 +330,34 @@ class UDROperatorCharm(CharmBase):
             nrf_url=self._nrf.nrf_url,
             scheme="https",
         )
-        if not self._config_file_content_matches(content=content):
-            self._push_udr_config_file_to_workload(content=content)
-            self._configure_udr_service(force_restart=True)
 
-    def _configure_udr_service(self, force_restart: bool = False) -> None:
-        """Manages UDR's pebble layer and service.
-
-        Updates the pebble layer if the proposed config is different from the current one. If layer
-        has been updated also restart the workload service.
+    def _is_config_update_required(self, content: str) -> bool:
+        """Decides whether config update is required by checking existence and config content.
 
         Args:
-            force_restart (bool): Allows for forcibly restarting the service even if Pebble plan
-                didn't change.
+            content (str): desired config file content
+
+        Returns:
+            True if config update is required else False
         """
-        pebble_layer = self._pebble_layer
-        plan = self._container.get_plan()
-        if plan.services != pebble_layer.services or force_restart:
-            self._container.add_layer(self._container_name, pebble_layer, combine=True)
+        if not self._config_file_is_written() or not self._config_file_content_matches(
+            content=content
+        ):
+            return True
+        return False
+
+    def _configure_pebble(self, restart: bool = False) -> None:
+        """Configure the Pebble layer.
+
+        Args:
+            restart (bool): Whether to restart the Pebble service. Defaults to False.
+        """
+        self._container.add_layer(self._container_name, self._pebble_layer, combine=True)
+        if restart:
             self._container.restart(self._service_name)
-            logger.info(f"Restarted container {self._service_name}")
+            logger.info("Restarted container %s", self._service_name)
+            return
+        self._container.replan()
 
     @staticmethod
     def _render_config_file(
@@ -392,6 +398,14 @@ class UDROperatorCharm(CharmBase):
             nrf_url=nrf_url,
             scheme=scheme,
         )
+
+    def _config_file_is_written(self) -> bool:
+        """Returns whether the config file was written to the workload container.
+
+        Returns:
+            bool: Whether the config file was written.
+        """
+        return bool(self._container.exists(f"{BASE_CONFIG_PATH}/{UDR_CONFIG_FILE_NAME}"))
 
     def _config_file_content_matches(self, content: str) -> bool:
         """Returns whether the config file content matches the provided content.
@@ -527,7 +541,9 @@ class UDROperatorCharm(CharmBase):
         Returns:
             bool: Whether storage is attached.
         """
-        return self._container.exists(path=BASE_CONFIG_PATH)
+        return self._container.exists(path=BASE_CONFIG_PATH) and self._container.exists(
+            path=CERTS_DIR_PATH
+        )
 
 
 def _get_pod_ip() -> Optional[str]:
