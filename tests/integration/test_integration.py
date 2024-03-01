@@ -33,6 +33,7 @@ class TestUDROperatorCharm:
         await self._deploy_mongodb(ops_test)
         await self._deploy_tls_provider(ops_test)
         await self._deploy_sdcore_nrf_operator(ops_test)
+        await self._deploy_grafana_agent(ops_test)
 
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
@@ -116,10 +117,10 @@ class TestUDROperatorCharm:
             relation1=f"{APPLICATION_NAME}:{TLS_RELATION_NAME}",
             relation2=f"{TLS_PROVIDER_CHARM_NAME}:certificates",
         )
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
         await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:logging", relation2=GRAFANA_AGENT_APP_NAME
         )
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
 
     @pytest.mark.abort_on_fail
     async def test_remove_nrf_and_wait_for_blocked_status(
