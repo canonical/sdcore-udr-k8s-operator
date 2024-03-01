@@ -21,13 +21,15 @@ COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 NRF_RELATION_NAME = "fiveg_nrf"
 TLS_RELATION_NAME = "certificates"
+GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
 
 
 class TestUDROperatorCharm:
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
     async def setup(self, ops_test: OpsTest):
-        await ops_test.model.set_config({"update-status-hook-interval": "5s"})  # type: ignore[union-attr]  # noqa: E501
+        assert ops_test.model
+        await ops_test.model.set_config({"update-status-hook-interval": "5s"})
         await self._deploy_mongodb(ops_test)
         await self._deploy_tls_provider(ops_test)
         await self._deploy_sdcore_nrf_operator(ops_test)
@@ -37,7 +39,8 @@ class TestUDROperatorCharm:
     async def build_and_deploy_charm(self, ops_test: OpsTest):
         charm = await ops_test.build_charm(".")
         resources = {"udr-image": METADATA["resources"]["udr-image"]["upstream-source"]}
-        await ops_test.model.deploy(  # type: ignore[union-attr]
+        assert ops_test.model
+        await ops_test.model.deploy(
             charm,
             resources=resources,
             application_name=APPLICATION_NAME,
@@ -46,7 +49,8 @@ class TestUDROperatorCharm:
 
     @staticmethod
     async def _deploy_mongodb(ops_test: OpsTest):
-        await ops_test.model.deploy(  # type: ignore[union-attr]
+        assert ops_test.model
+        await ops_test.model.deploy(
             DB_APPLICATION_NAME,
             application_name=DB_APPLICATION_NAME,
             channel="6/beta",
@@ -55,97 +59,119 @@ class TestUDROperatorCharm:
 
     @staticmethod
     async def _deploy_tls_provider(ops_test: OpsTest):
-        await ops_test.model.deploy(  # type: ignore[union-attr]
+        assert ops_test.model
+        await ops_test.model.deploy(
             TLS_PROVIDER_CHARM_NAME,
             application_name=TLS_PROVIDER_CHARM_NAME,
             channel="beta",
         )
 
     @staticmethod
+    async def _deploy_grafana_agent(ops_test: OpsTest):
+        assert ops_test.model
+        await ops_test.model.deploy(
+            GRAFANA_AGENT_APP_NAME,
+            application_name=GRAFANA_AGENT_APP_NAME,
+            channel="stable",
+        )
+
+    @staticmethod
     async def _deploy_sdcore_nrf_operator(ops_test: OpsTest):
-        await ops_test.model.deploy(  # type: ignore[union-attr]
+        assert ops_test.model
+        await ops_test.model.deploy(
             NRF_APPLICATION_NAME,
             application_name=NRF_APPLICATION_NAME,
             channel="edge",
             trust=True,
         )
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        await ops_test.model.integrate(
             relation1=DB_APPLICATION_NAME, relation2=NRF_APPLICATION_NAME
         )
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        await ops_test.model.integrate(
             relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME
         )
 
     @pytest.mark.abort_on_fail
     async def test_wait_for_blocked_status(self, ops_test: OpsTest, setup, build_and_deploy_charm):
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=1000)  # type: ignore[union-attr]  # noqa: E501
+        assert ops_test.model
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=1000)
 
     @pytest.mark.abort_on_fail
     async def test_relate_and_wait_for_idle(
         self, ops_test: OpsTest, setup, build_and_deploy_charm
     ):
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        assert ops_test.model
+        await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:{COMMON_DATABASE_RELATION_NAME}",
             relation2=DB_APPLICATION_NAME,
         )
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:{AUTH_DATABASE_RELATION_NAME}",
             relation2=DB_APPLICATION_NAME,
         )
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:{NRF_RELATION_NAME}", relation2=NRF_APPLICATION_NAME
         )
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:{TLS_RELATION_NAME}",
             relation2=f"{TLS_PROVIDER_CHARM_NAME}:certificates",
         )
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)  # type: ignore[union-attr]  # noqa: E501
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
+        await ops_test.model.integrate(
+            relation1=f"{APPLICATION_NAME}:logging", relation2=GRAFANA_AGENT_APP_NAME
+        )
 
     @pytest.mark.abort_on_fail
     async def test_remove_nrf_and_wait_for_blocked_status(
         self, ops_test: OpsTest, setup, build_and_deploy_charm
     ):
-        await ops_test.model.remove_application(NRF_APPLICATION_NAME, block_until_done=True)  # type: ignore[union-attr]  # noqa: E501
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)  # type: ignore[union-attr]  # noqa: E501
+        assert ops_test.model
+        await ops_test.model.remove_application(NRF_APPLICATION_NAME, block_until_done=True)
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)
 
     @pytest.mark.abort_on_fail
     async def test_restore_nrf_and_wait_for_active_status(
         self, ops_test: OpsTest, setup, build_and_deploy_charm
     ):
-        await ops_test.model.deploy(  # type: ignore[union-attr]
+        assert ops_test.model
+        await ops_test.model.deploy(
             NRF_APPLICATION_NAME,
             application_name=NRF_APPLICATION_NAME,
             channel="edge",
             trust=True,
         )
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        await ops_test.model.integrate(
             relation1=f"{NRF_APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
         )
-        await ops_test.model.integrate(relation1=APPLICATION_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
-        await ops_test.model.integrate(relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME)  # type: ignore[union-attr]  # noqa: E501
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)  # type: ignore[union-attr]  # noqa: E501
+        await ops_test.model.integrate(relation1=APPLICATION_NAME, relation2=NRF_APPLICATION_NAME)
+        await ops_test.model.integrate(
+            relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME
+        )
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 
     @pytest.mark.abort_on_fail
     async def test_remove_tls_and_wait_for_blocked_status(
         self, ops_test: OpsTest, build_and_deploy_charm
     ):
-        await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)  # type: ignore[union-attr]  # noqa: E501
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)  # type: ignore[union-attr]  # noqa: E501
+        assert ops_test.model
+        await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)
 
     @pytest.mark.abort_on_fail
     async def test_restore_tls_and_wait_for_active_status(
         self, ops_test: OpsTest, build_and_deploy_charm
     ):
-        await ops_test.model.deploy(  # type: ignore[union-attr]
+        assert ops_test.model
+        await ops_test.model.deploy(
             TLS_PROVIDER_CHARM_NAME,
             application_name=TLS_PROVIDER_CHARM_NAME,
             channel="beta",
             trust=True,
         )
-        await ops_test.model.integrate(  # type: ignore[union-attr]
+        await ops_test.model.integrate(
             relation1=APPLICATION_NAME, relation2=TLS_PROVIDER_CHARM_NAME
         )
-        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)  # type: ignore[union-attr]  # noqa: E501
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
 
 
 @pytest.mark.skip(
