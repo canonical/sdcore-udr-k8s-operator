@@ -10,6 +10,7 @@ from subprocess import CalledProcessError, check_output
 from typing import Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
+from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
 from charms.sdcore_nrf_k8s.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
 from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
     CertificateExpiringEvent,
@@ -39,6 +40,7 @@ PRIVATE_KEY_NAME = "udr.key"
 CSR_NAME = "udr.csr"
 CERTIFICATE_NAME = "udr.pem"
 CERTIFICATE_COMMON_NAME = "udr.sdcore"
+LOGGING_RELATION_NAME = "logging"
 
 
 class UDROperatorCharm(CharmBase):
@@ -57,6 +59,7 @@ class UDROperatorCharm(CharmBase):
         )
         self.unit.set_ports(UDR_SBI_PORT)
         self._certificates = TLSCertificatesRequiresV3(self, TLS_RELATION_NAME)
+        self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
         self.framework.observe(self.on.update_status, self._configure_udr)
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
         self.framework.observe(self.on.common_database_relation_joined, self._configure_udr)

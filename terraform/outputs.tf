@@ -25,3 +25,8 @@ output "certificates_endpoint" {
   description = "Name of the endpoint to get the X.509 certificate using tls-certificates interface."
   value       = "certificates"
 }
+
+output "logging_endpoint" {
+  description = "Name of the endpoint used to integrate with the Logging provider."
+  value       = "logging"
+}
