@@ -19,7 +19,14 @@ from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ign
     generate_private_key,
 )
 from jinja2 import Environment, FileSystemLoader
-from ops import ActiveStatus, BlockedStatus, CollectStatusEvent, RelationBrokenEvent, WaitingStatus
+from ops import (
+    ActiveStatus,
+    BlockedStatus,
+    CollectStatusEvent,
+    ModelError,
+    RelationBrokenEvent,
+    WaitingStatus,
+)
 from ops.charm import CharmBase, EventBase
 from ops.main import main
 from ops.pebble import Layer, PathError
@@ -141,6 +148,10 @@ class UDROperatorCharm(CharmBase):
             event.add_status(WaitingStatus("Waiting for certificates to be stored"))
             return
 
+        if not self._udr_service_is_running():
+            event.add_status(WaitingStatus("Waiting for UDR service to start"))
+            return
+
         event.add_status(ActiveStatus())
 
     def ready_to_configure(self) -> bool:
@@ -166,6 +177,14 @@ class UDROperatorCharm(CharmBase):
         if not self._get_auth_database_url():
             return False
         if not self._nrf_is_available():
+            return False
+        return True
+
+    def _udr_service_is_running(self) -> bool:
+        """Check if the UDR service is running."""
+        try:
+            self._container.get_service(service_name=self._service_name)
+        except ModelError:
             return False
         return True
 
