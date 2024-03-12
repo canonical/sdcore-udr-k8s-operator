@@ -9,8 +9,7 @@ import yaml
 from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
     ProviderCertificate,
 )
-from ops import testing
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
+from ops import ActiveStatus, BlockedStatus, WaitingStatus, testing
 
 from charm import NRF_RELATION_NAME, TLS_RELATION_NAME, UDROperatorCharm
 
@@ -155,6 +154,7 @@ class TestCharm(unittest.TestCase):
     ):
         self._create_nrf_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus("Waiting for the common_database relation to be created"),
@@ -169,6 +169,7 @@ class TestCharm(unittest.TestCase):
         )
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus("Waiting for the auth_database relation to be created"),
@@ -183,6 +184,7 @@ class TestCharm(unittest.TestCase):
             relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
         )
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus("Waiting for the fiveg_nrf relation to be created"),
@@ -199,6 +201,7 @@ class TestCharm(unittest.TestCase):
         )
         self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             BlockedStatus("Waiting for the certificates relation to be created"),
@@ -227,10 +230,10 @@ class TestCharm(unittest.TestCase):
         self.harness.container_pebble_ready(self.container_name)
 
         self.harness.remove_relation(nrf_relation_id)
-
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for fiveg_nrf relation"),
+            BlockedStatus("Waiting for the fiveg_nrf relation to be created"),
         )
 
     @patch("charm.check_output")
@@ -257,10 +260,10 @@ class TestCharm(unittest.TestCase):
         self.harness.container_pebble_ready(self.container_name)
 
         self.harness.remove_relation(database_relation_id)
-
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for common_database relation"),
+            BlockedStatus("Waiting for the common_database relation to be created"),
         )
 
     def test_given_relations_created_but_common_database_not_available_when_pebble_ready_then_status_is_waiting(  # noqa: E501
@@ -275,6 +278,7 @@ class TestCharm(unittest.TestCase):
         self._create_nrf_relation()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             WaitingStatus("Waiting for the common database to be available"),
@@ -294,6 +298,7 @@ class TestCharm(unittest.TestCase):
         self._create_nrf_relation()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             WaitingStatus("Waiting for the common database url to be available"),
@@ -309,6 +314,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for the NRF to be available")
         )
@@ -325,6 +331,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for the storage to be attached")
         )
@@ -351,6 +358,7 @@ class TestCharm(unittest.TestCase):
         self._create_certificates_relation()
 
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status, WaitingStatus("Waiting for certificates to be stored")
         )
@@ -394,7 +402,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
-
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
         with open("tests/unit/resources/expected_udrcfg.yaml") as expected_config_file:
             expected_content = expected_config_file.read()
@@ -476,7 +484,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
-
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
 
         patch_restart.assert_called_with(self.container_name)
@@ -524,7 +532,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
-
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
 
         patch_restart.assert_not_called()
@@ -572,6 +580,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
 
         updated_plan = self.harness.get_container_pebble_plan("udr").to_dict()
@@ -615,6 +624,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             ActiveStatus(),
@@ -657,6 +667,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             WaitingStatus("Waiting for pod IP address to be available"),
@@ -700,6 +711,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
             WaitingStatus("Waiting for pod IP address to be available"),
