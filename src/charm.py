@@ -19,7 +19,14 @@ from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ign
     generate_private_key,
 )
 from jinja2 import Environment, FileSystemLoader
-from ops import ActiveStatus, BlockedStatus, RelationBrokenEvent, WaitingStatus
+from ops import (
+    ActiveStatus,
+    BlockedStatus,
+    CollectStatusEvent,
+    ModelError,
+    RelationBrokenEvent,
+    WaitingStatus,
+)
 from ops.charm import CharmBase, EventBase
 from ops.main import main
 from ops.pebble import Layer, PathError
@@ -57,6 +64,7 @@ class UDROperatorCharm(CharmBase):
         self._auth_database = DatabaseRequires(
             self, relation_name=AUTH_DATABASE_RELATION_NAME, database_name=AUTH_DATABASE_NAME
         )
+        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
         self.unit.set_ports(UDR_SBI_PORT)
         self._certificates = TLSCertificatesRequiresV3(self, TLS_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
@@ -84,8 +92,12 @@ class UDROperatorCharm(CharmBase):
             self._certificates.on.certificate_expiring, self._on_certificate_expiring
         )
 
-    def ready_to_configure(self) -> bool:
-        """Returns whether the preconditions are met to proceed with configuration."""
+    def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa C901
+        """Check the unit status and set to Unit when CollectStatusEvent is fired.
+
+        Args:
+            event: CollectStatusEvent
+        """
         for relation in [
             COMMON_DATABASE_RELATION_NAME,
             AUTH_DATABASE_RELATION_NAME,
@@ -93,26 +105,86 @@ class UDROperatorCharm(CharmBase):
             TLS_RELATION_NAME,
         ]:
             if not self._relation_created(relation):
-                self.unit.status = BlockedStatus(
-                    f"Waiting for the {relation} relation to be created"
+                event.add_status(
+                    BlockedStatus(f"Waiting for the {relation} relation to be created")
                 )
+                return
+
+        if not self._common_database_is_available():
+            event.add_status(WaitingStatus("Waiting for the common database to be available"))
+            return
+
+        if not self._auth_database_is_available():
+            event.add_status(
+                WaitingStatus("Waiting for the authentication database to be available")
+            )
+            return
+
+        if not self._get_common_database_url():
+            event.add_status(WaitingStatus("Waiting for the common database url to be available"))
+            return
+
+        if not self._get_auth_database_url():
+            event.add_status(WaitingStatus("Waiting for the auth database url to be available"))
+            return
+
+        if not self._nrf_is_available():
+            event.add_status(WaitingStatus("Waiting for the NRF to be available"))
+            return
+
+        if not self._container.can_connect():
+            event.add_status(WaitingStatus("Waiting for the container to be ready"))
+            return
+
+        if not self._storage_is_attached():
+            event.add_status(WaitingStatus("Waiting for the storage to be attached"))
+            return
+
+        if not _get_pod_ip():
+            event.add_status(WaitingStatus("Waiting for pod IP address to be available"))
+            return
+
+        if self._csr_is_stored() and not self._get_current_provider_certificate():
+            event.add_status(WaitingStatus("Waiting for certificates to be stored"))
+            return
+
+        if not self._udr_service_is_running():
+            event.add_status(WaitingStatus("Waiting for UDR service to start"))
+            return
+
+        event.add_status(ActiveStatus())
+
+    def ready_to_configure(self) -> bool:
+        """Returns whether the preconditions are met to proceed with the configuration.
+
+        Returns:
+            ready_to_configure: True if all conditions are met else False
+        """
+        for relation in [
+            COMMON_DATABASE_RELATION_NAME,
+            AUTH_DATABASE_RELATION_NAME,
+            NRF_RELATION_NAME,
+            TLS_RELATION_NAME,
+        ]:
+            if not self._relation_created(relation):
                 return False
         if not self._common_database_is_available():
-            self.unit.status = WaitingStatus("Waiting for the common database to be available")
             return False
         if not self._auth_database_is_available():
-            self.unit.status = WaitingStatus(
-                "Waiting for the authentication database to be available"
-            )
             return False
         if not self._get_common_database_url():
-            self.unit.status = WaitingStatus("Waiting for the common database url to be available")
             return False
         if not self._get_auth_database_url():
-            self.unit.status = WaitingStatus("Waiting for the auth database url to be available")
             return False
         if not self._nrf_is_available():
-            self.unit.status = WaitingStatus("Waiting for the NRF to be available")
+            return False
+        return True
+
+    def _udr_service_is_running(self) -> bool:
+        """Check if the UDR service is running."""
+        try:
+            self._container.get_service(service_name=self._service_name)
+        except ModelError:
             return False
         return True
 
@@ -128,15 +200,11 @@ class UDROperatorCharm(CharmBase):
         if not self.ready_to_configure():
             return
         if not self._container.can_connect():
-            self.unit.status = WaitingStatus("Waiting for the container to be ready")
             return
         if not self._storage_is_attached():
-            self.unit.status = WaitingStatus("Waiting for the storage to be attached")
             return
         if not _get_pod_ip():
-            self.unit.status = WaitingStatus("Waiting for pod IP address to be available")
             return
-
         if not self._private_key_is_stored():
             self._generate_private_key()
 
@@ -145,7 +213,6 @@ class UDROperatorCharm(CharmBase):
 
         provider_certificate = self._get_current_provider_certificate()
         if not provider_certificate:
-            self.unit.status = WaitingStatus("Waiting for certificates to be stored")
             return
 
         if certificate_update_required := self._is_certificate_update_required(
@@ -159,7 +226,6 @@ class UDROperatorCharm(CharmBase):
 
         should_restart = config_update_required or certificate_update_required
         self._configure_pebble(restart=should_restart)
-        self.unit.status = ActiveStatus()
 
     def _on_nrf_broken(self, event: RelationBrokenEvent) -> None:
         """Event handler for NRF relation broken.
@@ -167,7 +233,7 @@ class UDROperatorCharm(CharmBase):
         Args:
             event (NRFBrokenEvent): Juju event
         """
-        self.unit.status = BlockedStatus("Waiting for fiveg_nrf relation")
+        logger.info("Waiting for fiveg_nrf relation")
 
     def _on_common_database_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event handler for common database relation broken.
@@ -176,9 +242,7 @@ class UDROperatorCharm(CharmBase):
             event: Juju event
         """
         if not self.model.relations[COMMON_DATABASE_RELATION_NAME]:
-            self.unit.status = BlockedStatus(
-                f"Waiting for {COMMON_DATABASE_RELATION_NAME} relation"
-            )
+            logger.info(f"Waiting for {COMMON_DATABASE_RELATION_NAME} relation")
 
     def _on_auth_database_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event handler for auth database relation broken.
@@ -187,7 +251,7 @@ class UDROperatorCharm(CharmBase):
             event: Juju event
         """
         if not self.model.relations[AUTH_DATABASE_RELATION_NAME]:
-            self.unit.status = BlockedStatus(f"Waiting for {AUTH_DATABASE_RELATION_NAME} relation")
+            logger.info(f"Waiting for {AUTH_DATABASE_RELATION_NAME} relation")
 
     def _on_certificates_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Deletes TLS related artifacts and reconfigures workload."""
@@ -197,7 +261,6 @@ class UDROperatorCharm(CharmBase):
         self._delete_private_key()
         self._delete_csr()
         self._delete_certificate()
-        self.unit.status = BlockedStatus("Waiting for certificates relation")
 
     def _get_current_provider_certificate(self) -> str | None:
         """Compares the current certificate request to what is in the interface.
