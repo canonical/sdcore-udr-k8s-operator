@@ -55,6 +55,14 @@ class UDROperatorCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
+        if not self.unit.is_leader():
+            # NOTE: In cases where leader status is lost before the charm is
+            # finished processing all teardown events, this prevents teardown
+            # event code from running. Luckily, for this charm, none of the
+            # teardown code is necessary to perform if we're removing the
+            # charm.
+            return
         self._container_name = self._service_name = "udr"
         self._container = self.unit.get_container(self._container_name)
         self._nrf = NRFRequires(charm=self, relation_name=NRF_RELATION_NAME)
@@ -64,7 +72,6 @@ class UDROperatorCharm(CharmBase):
         self._auth_database = DatabaseRequires(
             self, relation_name=AUTH_DATABASE_RELATION_NAME, database_name=AUTH_DATABASE_NAME
         )
-        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)
         self.unit.set_ports(UDR_SBI_PORT)
         self._certificates = TLSCertificatesRequiresV3(self, TLS_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
@@ -72,17 +79,13 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
         self.framework.observe(self.on.common_database_relation_joined, self._configure_udr)
         self.framework.observe(self.on.auth_database_relation_joined, self._configure_udr)
-        self.framework.observe(
-            self.on.common_database_relation_broken, self._on_common_database_relation_broken
-        )
-        self.framework.observe(
-            self.on.auth_database_relation_broken, self._on_auth_database_relation_broken
-        )
+        self.framework.observe(self.on.common_database_relation_broken, self._configure_udr)
+        self.framework.observe(self.on.auth_database_relation_broken, self._configure_udr)
         self.framework.observe(self._common_database.on.database_created, self._configure_udr)
         self.framework.observe(self._auth_database.on.database_created, self._configure_udr)
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_udr)
-        self.framework.observe(self._nrf.on.nrf_broken, self._on_nrf_broken)
+        self.framework.observe(self._nrf.on.nrf_broken, self._configure_udr)
         self.framework.observe(self.on.certificates_relation_joined, self._configure_udr)
         self.framework.observe(
             self.on.certificates_relation_broken, self._on_certificates_relation_broken
@@ -98,6 +101,16 @@ class UDROperatorCharm(CharmBase):
         Args:
             event: CollectStatusEvent
         """
+        if not self.unit.is_leader():
+            # NOTE: In cases where leader status is lost before the charm is
+            # finished processing all teardown events, this prevents teardown
+            # event code from running. Luckily, for this charm, none of the
+            # teardown code is necessary to perform if we're removing the
+            # charm.
+            event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
+            logger.info("Scaling is not implemented for this charm")
+            return
+
         for relation in [
             COMMON_DATABASE_RELATION_NAME,
             AUTH_DATABASE_RELATION_NAME,
@@ -108,48 +121,59 @@ class UDROperatorCharm(CharmBase):
                 event.add_status(
                     BlockedStatus(f"Waiting for the {relation} relation to be created")
                 )
+                logger.info("Waiting for the %s relation to be created", relation)
                 return
 
         if not self._common_database_is_available():
             event.add_status(WaitingStatus("Waiting for the common database to be available"))
+            logger.info("Waiting for the common database to be available")
             return
 
         if not self._auth_database_is_available():
             event.add_status(
                 WaitingStatus("Waiting for the authentication database to be available")
             )
+            logger.info("Waiting for the authentication database to be available")
             return
 
         if not self._get_common_database_url():
             event.add_status(WaitingStatus("Waiting for the common database url to be available"))
+            logger.info("Waiting for the common database url to be available")
             return
 
         if not self._get_auth_database_url():
             event.add_status(WaitingStatus("Waiting for the auth database url to be available"))
+            logger.info("Waiting for the auth database url to be available")
             return
 
         if not self._nrf_is_available():
             event.add_status(WaitingStatus("Waiting for the NRF to be available"))
+            logger.info("Waiting for the NRF to be available")
             return
 
         if not self._container.can_connect():
             event.add_status(WaitingStatus("Waiting for the container to be ready"))
+            logger.info("Waiting for the container to be ready")
             return
 
         if not self._storage_is_attached():
             event.add_status(WaitingStatus("Waiting for the storage to be attached"))
+            logger.info("Waiting for the storage to be attached")
             return
 
         if not _get_pod_ip():
             event.add_status(WaitingStatus("Waiting for pod IP address to be available"))
+            logger.info("Waiting for pod IP address to be available")
             return
 
         if self._csr_is_stored() and not self._get_current_provider_certificate():
             event.add_status(WaitingStatus("Waiting for certificates to be stored"))
+            logger.info("Waiting for certificates to be stored")
             return
 
         if not self._udr_service_is_running():
             event.add_status(WaitingStatus("Waiting for UDR service to start"))
+            logger.info("Waiting for UDR service to start")
             return
 
         event.add_status(ActiveStatus())
@@ -168,16 +192,22 @@ class UDROperatorCharm(CharmBase):
         ]:
             if not self._relation_created(relation):
                 return False
+
         if not self._common_database_is_available():
             return False
+
         if not self._auth_database_is_available():
             return False
+
         if not self._get_common_database_url():
             return False
+
         if not self._get_auth_database_url():
             return False
+
         if not self._nrf_is_available():
             return False
+
         return True
 
     def _udr_service_is_running(self) -> bool:
@@ -198,13 +228,18 @@ class UDROperatorCharm(CharmBase):
             event: Juju event
         """
         if not self.ready_to_configure():
+            logger.info("The preconditions for the configuration are not met yet.")
             return
+
         if not self._container.can_connect():
             return
+
         if not self._storage_is_attached():
             return
+
         if not _get_pod_ip():
             return
+
         if not self._private_key_is_stored():
             self._generate_private_key()
 
@@ -226,32 +261,6 @@ class UDROperatorCharm(CharmBase):
 
         should_restart = config_update_required or certificate_update_required
         self._configure_pebble(restart=should_restart)
-
-    def _on_nrf_broken(self, event: RelationBrokenEvent) -> None:
-        """Event handler for NRF relation broken.
-
-        Args:
-            event (NRFBrokenEvent): Juju event
-        """
-        logger.info("Waiting for fiveg_nrf relation")
-
-    def _on_common_database_relation_broken(self, event: RelationBrokenEvent) -> None:
-        """Event handler for common database relation broken.
-
-        Args:
-            event: Juju event
-        """
-        if not self.model.relations[COMMON_DATABASE_RELATION_NAME]:
-            logger.info(f"Waiting for {COMMON_DATABASE_RELATION_NAME} relation")
-
-    def _on_auth_database_relation_broken(self, event: RelationBrokenEvent) -> None:
-        """Event handler for auth database relation broken.
-
-        Args:
-            event: Juju event
-        """
-        if not self.model.relations[AUTH_DATABASE_RELATION_NAME]:
-            logger.info(f"Waiting for {AUTH_DATABASE_RELATION_NAME} relation")
 
     def _on_certificates_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Deletes TLS related artifacts and reconfigures workload."""
