@@ -79,13 +79,10 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(self.on.udr_pebble_ready, self._configure_udr)
         self.framework.observe(self.on.common_database_relation_joined, self._configure_udr)
         self.framework.observe(self.on.auth_database_relation_joined, self._configure_udr)
-        self.framework.observe(self.on.common_database_relation_broken, self._configure_udr)
-        self.framework.observe(self.on.auth_database_relation_broken, self._configure_udr)
         self.framework.observe(self._common_database.on.database_created, self._configure_udr)
         self.framework.observe(self._auth_database.on.database_created, self._configure_udr)
         self.framework.observe(self.on.fiveg_nrf_relation_joined, self._configure_udr)
         self.framework.observe(self._nrf.on.nrf_available, self._configure_udr)
-        self.framework.observe(self._nrf.on.nrf_broken, self._configure_udr)
         self.framework.observe(self.on.certificates_relation_joined, self._configure_udr)
         self.framework.observe(
             self.on.certificates_relation_broken, self._on_certificates_relation_broken
