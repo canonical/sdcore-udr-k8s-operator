@@ -176,7 +176,7 @@ class UDROperatorCharm(CharmBase):
         event.add_status(ActiveStatus())
 
     def ready_to_configure(self) -> bool:
-        """Returns whether the preconditions are met to proceed with the configuration.
+        """Return whether the preconditions are met to proceed with the configuration.
 
         Returns:
             ready_to_configure: True if all conditions are met else False
@@ -216,10 +216,9 @@ class UDROperatorCharm(CharmBase):
         return True
 
     def _configure_udr(self, event: EventBase) -> None:
-        """Main callback function of the UDR operator.
+        """Handle config changes.
 
-        Handles config changes.
-        Manages pebble layer and Juju unit status.
+        Manage pebble layer and Juju unit status.
 
         Args:
             event: Juju event
@@ -260,7 +259,7 @@ class UDROperatorCharm(CharmBase):
         self._configure_pebble(restart=should_restart)
 
     def _on_certificates_relation_broken(self, event: RelationBrokenEvent) -> None:
-        """Deletes TLS related artifacts and reconfigures workload."""
+        """Delete TLS related artifacts and reconfigures workload."""
         if not self._container.can_connect():
             event.defer()
             return
@@ -269,9 +268,9 @@ class UDROperatorCharm(CharmBase):
         self._delete_certificate()
 
     def _get_current_provider_certificate(self) -> str | None:
-        """Compares the current certificate request to what is in the interface.
+        """Compare the current certificate request to what is in the interface.
 
-        Returns the current valid provider certificate if present
+        Return the current valid provider certificate if present
         """
         csr = self._get_stored_csr()
         for provider_certificate in self._certificates.get_assigned_certificates():
@@ -280,13 +279,13 @@ class UDROperatorCharm(CharmBase):
         return None
 
     def _get_existing_certificate(self) -> str:
-        """Returns the existing certificate if present else empty string."""
+        """Return the existing certificate if present else empty string."""
         return self._get_stored_certificate() if self._certificate_is_stored() else ""
 
     def _is_certificate_update_required(self, provider_certificate) -> bool:
-        """Checks the provided certificate and existing certificate.
+        """Check the provided certificate and existing certificate.
 
-        Returns True if update is required.
+        Return True if update is required.
 
         Args:
             provider_certificate: str
@@ -296,7 +295,7 @@ class UDROperatorCharm(CharmBase):
         return self._get_existing_certificate() != provider_certificate
 
     def _on_certificate_expiring(self, event: CertificateExpiringEvent):
-        """Requests new certificate."""
+        """Request new certificate."""
         if not self._container.can_connect():
             event.defer()
             return
@@ -306,12 +305,12 @@ class UDROperatorCharm(CharmBase):
         self._request_new_certificate()
 
     def _generate_private_key(self) -> None:
-        """Generates and stores private key."""
+        """Generate and stores private key."""
         private_key = generate_private_key()
         self._store_private_key(private_key)
 
     def _request_new_certificate(self) -> None:
-        """Generates and stores CSR, and uses it to request a new certificate."""
+        """Generate and stores CSR, and uses it to request a new certificate."""
         private_key = self._get_stored_private_key()
         csr = generate_csr(
             private_key=private_key,
@@ -322,59 +321,59 @@ class UDROperatorCharm(CharmBase):
         self._certificates.request_certificate_creation(certificate_signing_request=csr)
 
     def _delete_private_key(self):
-        """Removes private key from workload."""
+        """Remove private key from workload."""
         if not self._private_key_is_stored():
             return
         self._container.remove_path(path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}")
         logger.info("Removed private key from workload")
 
     def _delete_csr(self):
-        """Deletes CSR from workload."""
+        """Delete CSR from workload."""
         if not self._csr_is_stored():
             return
         self._container.remove_path(path=f"{CERTS_DIR_PATH}/{CSR_NAME}")
         logger.info("Removed CSR from workload")
 
     def _delete_certificate(self):
-        """Deletes certificate from workload."""
+        """Delete certificate from workload."""
         if not self._certificate_is_stored():
             return
         self._container.remove_path(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}")
         logger.info("Removed certificate from workload")
 
     def _private_key_is_stored(self) -> bool:
-        """Returns whether private key is stored in workload."""
+        """Return whether private key is stored in workload."""
         return self._container.exists(path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}")
 
     def _csr_is_stored(self) -> bool:
-        """Returns whether CSR is stored in workload."""
+        """Return whether CSR is stored in workload."""
         return self._container.exists(path=f"{CERTS_DIR_PATH}/{CSR_NAME}")
 
     def _get_stored_certificate(self) -> str:
-        """Returns stored certificate."""
+        """Return stored certificate."""
         return str(self._container.pull(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}").read())
 
     def _get_stored_csr(self) -> str:
-        """Returns stored CSR."""
+        """Return stored CSR."""
         return str(self._container.pull(path=f"{CERTS_DIR_PATH}/{CSR_NAME}").read())
 
     def _get_stored_private_key(self) -> bytes:
-        """Returns stored private key."""
+        """Return stored private key."""
         return str(
             self._container.pull(path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}").read()
         ).encode()
 
     def _certificate_is_stored(self) -> bool:
-        """Returns whether certificate is stored in workload."""
+        """Return whether certificate is stored in workload."""
         return self._container.exists(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}")
 
     def _store_certificate(self, certificate: str) -> None:
-        """Stores certificate in workload."""
+        """Store certificate in workload."""
         self._container.push(path=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}", source=certificate)
         logger.info("Pushed certificate pushed to workload")
 
     def _store_private_key(self, private_key: bytes) -> None:
-        """Stores private key in workload."""
+        """Store private key in workload."""
         self._container.push(
             path=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}",
             source=private_key.decode(),
@@ -382,12 +381,12 @@ class UDROperatorCharm(CharmBase):
         logger.info("Pushed private key to workload")
 
     def _store_csr(self, csr: bytes) -> None:
-        """Stores CSR in workload."""
+        """Store CSR in workload."""
         self._container.push(path=f"{CERTS_DIR_PATH}/{CSR_NAME}", source=csr.decode().strip())
         logger.info("Pushed CSR to workload")
 
     def _generate_udr_config_file(self) -> str:
-        """Handles creation of the UDR config file based on a given template.
+        """Handle creation of the UDR config file based on a given template.
 
         Returns:
             content (str): desired config file content
@@ -404,7 +403,7 @@ class UDROperatorCharm(CharmBase):
         )
 
     def _is_config_update_required(self, content: str) -> bool:
-        """Decides whether config update is required by checking existence and config content.
+        """Decide whether config update is required by checking existence and config content.
 
         Args:
             content (str): desired config file content
@@ -443,12 +442,12 @@ class UDROperatorCharm(CharmBase):
         nrf_url: str,
         scheme: str,
     ) -> str:
-        """Renders the config file content.
+        """Render the config file content.
 
         Args:
             udr_ip_address (str): UDR IP address.
             udr_sbi_port (str): UDR SBI port.
-            common_database_name (str): Commmon Database name.
+            common_database_name (str): Common Database name.
             auth_database_name (str): Database name to store authentication keys.
             common_database_url (str): Common Database URL.
             auth_database_url (str): Authentication Database URL.
@@ -472,7 +471,7 @@ class UDROperatorCharm(CharmBase):
         )
 
     def _config_file_is_written(self) -> bool:
-        """Returns whether the config file was written to the workload container.
+        """Return whether the config file was written to the workload container.
 
         Returns:
             bool: Whether the config file was written.
@@ -480,7 +479,7 @@ class UDROperatorCharm(CharmBase):
         return bool(self._container.exists(f"{BASE_CONFIG_PATH}/{UDR_CONFIG_FILE_NAME}"))
 
     def _config_file_content_matches(self, content: str) -> bool:
-        """Returns whether the config file content matches the provided content.
+        """Return whether the config file content matches the provided content.
 
         Returns:
             bool: Whether the config file content matches
@@ -493,7 +492,7 @@ class UDROperatorCharm(CharmBase):
             return False
 
     def _push_udr_config_file_to_workload(self, content: str) -> None:
-        """Pushes UDR's config file to the workload container.
+        """Push UDR's config file to the workload container.
 
         Args:
             content (str): Config file's content.
@@ -504,7 +503,7 @@ class UDROperatorCharm(CharmBase):
         logger.info(f"Config file {UDR_CONFIG_FILE_NAME} pushed to workload.")
 
     def _get_common_database_url(self) -> str:
-        """Returns the common database URL.
+        """Return the common database URL.
 
         Returns:
             str: The common database URL.
@@ -519,7 +518,7 @@ class UDROperatorCharm(CharmBase):
         return ""
 
     def _get_auth_database_url(self) -> str:
-        """Returns the authentication database URL.
+        """Return the authentication database URL.
 
         Returns:
             str: The authentication database URL.
@@ -534,7 +533,7 @@ class UDROperatorCharm(CharmBase):
         return ""
 
     def _nrf_is_available(self) -> bool:
-        """Returns whether the NRF endpoint is available.
+        """Return whether the NRF endpoint is available.
 
         Returns:
             bool: whether the NRF endpoint is available.
@@ -542,7 +541,7 @@ class UDROperatorCharm(CharmBase):
         return bool(self._nrf.nrf_url)
 
     def _common_database_is_available(self) -> bool:
-        """Returns whether common database relation is available.
+        """Return whether common database relation is available.
 
         Returns:
             bool: Whether common database relation is available.
@@ -550,7 +549,7 @@ class UDROperatorCharm(CharmBase):
         return bool(self._common_database.is_resource_created())
 
     def _auth_database_is_available(self) -> bool:
-        """Returns whether authentication database relation is available.
+        """Return whether authentication database relation is available.
 
         Returns:
             bool: Whether authentication database relation is available.
@@ -582,7 +581,7 @@ class UDROperatorCharm(CharmBase):
 
     @property
     def _environment_variables(self) -> dict:
-        """Returns workload container environment variables.
+        """Return workload container environment variables.
 
         Returns:
             dict: environment variables
@@ -597,7 +596,7 @@ class UDROperatorCharm(CharmBase):
         }
 
     def _relation_created(self, relation_name: str) -> bool:
-        """Returns whether a given Juju relation was crated.
+        """Return whether a given Juju relation was created.
 
         Args:
             relation_name (str): Relation name
@@ -608,7 +607,7 @@ class UDROperatorCharm(CharmBase):
         return bool(self.model.get_relation(relation_name))
 
     def _storage_is_attached(self) -> bool:
-        """Returns whether storage is attached to the workload container.
+        """Return whether storage is attached to the workload container.
 
         Returns:
             bool: Whether storage is attached.
@@ -619,7 +618,7 @@ class UDROperatorCharm(CharmBase):
 
 
 def _get_pod_ip() -> Optional[str]:
-    """Returns the pod IP using juju client.
+    """Return the pod IP using juju client.
 
     Returns:
         str: The pod IP.
