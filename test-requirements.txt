@@ -16,6 +16,7 @@ certifi==2024.2.2
     #   requests
 cffi==1.16.0
     # via
+    #   -c requirements.txt
     #   cryptography
     #   pynacl
 charset-normalizer==3.3.2
