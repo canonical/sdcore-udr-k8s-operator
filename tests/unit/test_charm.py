@@ -6,12 +6,11 @@ from subprocess import CalledProcessError
 from unittest.mock import Mock, PropertyMock, patch
 
 import yaml
+from charm import NRF_RELATION_NAME, TLS_RELATION_NAME, UDROperatorCharm
 from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
     ProviderCertificate,
 )
 from ops import ActiveStatus, BlockedStatus, WaitingStatus, testing
-
-from charm import NRF_RELATION_NAME, TLS_RELATION_NAME, UDROperatorCharm
 
 COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
@@ -58,7 +57,7 @@ class TestCharm(unittest.TestCase):
 
     @staticmethod
     def _get_metadata() -> dict:
-        """Reads `metadata.yaml` and returns it as a dictionary.
+        """Read `metadata.yaml` and returns it as a dictionary.
 
         Returns:
             dics: metadata.yaml as a dictionary.
@@ -69,7 +68,7 @@ class TestCharm(unittest.TestCase):
 
     @staticmethod
     def _read_file(path: str) -> str:
-        """Reads a file and returns as a string.
+        """Read a file and returns as a string.
 
         Args:
             path (str): path to the file.
@@ -124,7 +123,7 @@ class TestCharm(unittest.TestCase):
         return auth_database_relation_id
 
     def _create_certificates_relation(self) -> int:
-        """Creates certificates relation.
+        """Create certificates relation.
 
         Returns:
             int: relation id.
@@ -138,7 +137,7 @@ class TestCharm(unittest.TestCase):
         return relation_id
 
     def _create_nrf_relation(self) -> int:
-        """Creates NRF relation.
+        """Create NRF relation.
 
         Returns:
             int: relation id.
