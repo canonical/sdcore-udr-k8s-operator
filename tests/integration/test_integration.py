@@ -15,13 +15,17 @@ METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APPLICATION_NAME = METADATA["name"]
 
 DB_APPLICATION_NAME = "mongodb-k8s"
+DB_APPLICATION_CHANNEL = "6/beta"
 NRF_APPLICATION_NAME = "sdcore-nrf-k8s"
+NRF_APPLICATION_CHANNEL = "1.4/edge"
 TLS_PROVIDER_CHARM_NAME = "self-signed-certificates"
+TLS_PROVIDER_CHARM_CHANNEL = "latest/stable"
 COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 NRF_RELATION_NAME = "fiveg_nrf"
 TLS_RELATION_NAME = "certificates"
 GRAFANA_AGENT_APP_NAME = "grafana-agent-k8s"
+GRAFANA_AGENT_APP_CHANNEL = "latest/stable"
 
 
 class TestUDROperatorCharm:
@@ -34,6 +38,12 @@ class TestUDROperatorCharm:
         await self._deploy_tls_provider(ops_test)
         await self._deploy_sdcore_nrf_operator(ops_test)
         await self._deploy_grafana_agent(ops_test)
+        await ops_test.model.integrate(
+            relation1=DB_APPLICATION_NAME, relation2=NRF_APPLICATION_NAME
+        )
+        await ops_test.model.integrate(
+            relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME
+        )
 
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
@@ -54,7 +64,7 @@ class TestUDROperatorCharm:
         await ops_test.model.deploy(
             DB_APPLICATION_NAME,
             application_name=DB_APPLICATION_NAME,
-            channel="6/beta",
+            channel=DB_APPLICATION_CHANNEL,
             trust=True,
         )
 
@@ -64,7 +74,7 @@ class TestUDROperatorCharm:
         await ops_test.model.deploy(
             TLS_PROVIDER_CHARM_NAME,
             application_name=TLS_PROVIDER_CHARM_NAME,
-            channel="beta",
+            channel=TLS_PROVIDER_CHARM_CHANNEL,
         )
 
     @staticmethod
@@ -73,7 +83,7 @@ class TestUDROperatorCharm:
         await ops_test.model.deploy(
             GRAFANA_AGENT_APP_NAME,
             application_name=GRAFANA_AGENT_APP_NAME,
-            channel="stable",
+            channel=GRAFANA_AGENT_APP_CHANNEL,
         )
 
     @staticmethod
@@ -82,14 +92,8 @@ class TestUDROperatorCharm:
         await ops_test.model.deploy(
             NRF_APPLICATION_NAME,
             application_name=NRF_APPLICATION_NAME,
-            channel="edge",
+            channel=NRF_APPLICATION_CHANNEL,
             trust=True,
-        )
-        await ops_test.model.integrate(
-            relation1=DB_APPLICATION_NAME, relation2=NRF_APPLICATION_NAME
-        )
-        await ops_test.model.integrate(
-            relation1=TLS_PROVIDER_CHARM_NAME, relation2=NRF_APPLICATION_NAME
         )
 
     @pytest.mark.abort_on_fail
@@ -135,12 +139,7 @@ class TestUDROperatorCharm:
         self, ops_test: OpsTest, setup, build_and_deploy_charm
     ):
         assert ops_test.model
-        await ops_test.model.deploy(
-            NRF_APPLICATION_NAME,
-            application_name=NRF_APPLICATION_NAME,
-            channel="edge",
-            trust=True,
-        )
+        await self._deploy_sdcore_nrf_operator(ops_test)
         await ops_test.model.integrate(
             relation1=f"{NRF_APPLICATION_NAME}:database", relation2=DB_APPLICATION_NAME
         )
@@ -163,46 +162,38 @@ class TestUDROperatorCharm:
         self, ops_test: OpsTest, build_and_deploy_charm
     ):
         assert ops_test.model
-        await ops_test.model.deploy(
-            TLS_PROVIDER_CHARM_NAME,
-            application_name=TLS_PROVIDER_CHARM_NAME,
-            channel="beta",
-            trust=True,
-        )
+        await self._deploy_tls_provider(ops_test)
         await ops_test.model.integrate(
             relation1=APPLICATION_NAME, relation2=TLS_PROVIDER_CHARM_NAME
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
 
-
-@pytest.mark.skip(
-    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
-)
-@pytest.mark.abort_on_fail
-async def test_remove_database_and_wait_for_blocked_status(ops_test: OpsTest, build_and_deploy):
-    assert ops_test.model
-    await ops_test.model.remove_application(DB_APPLICATION_NAME, block_until_done=True)
-    await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)
-
-
-@pytest.mark.skip(
-    reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
-)
-@pytest.mark.abort_on_fail
-async def test_restore_database_and_wait_for_active_status(ops_test: OpsTest, build_and_deploy):
-    assert ops_test.model
-    await ops_test.model.deploy(
-        DB_APPLICATION_NAME,
-        application_name=DB_APPLICATION_NAME,
-        channel="5/edge",
-        trust=True,
+    @pytest.mark.skip(
+        reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
     )
-    await ops_test.model.integrate(
-        relation1=f"{NRF_APPLICATION_NAME}:{COMMON_DATABASE_RELATION_NAME}",
-        relation2=DB_APPLICATION_NAME,
+    @pytest.mark.abort_on_fail
+    async def test_remove_database_and_wait_for_blocked_status(
+        self, ops_test: OpsTest, build_and_deploy_charm
+    ):
+        assert ops_test.model
+        await ops_test.model.remove_application(DB_APPLICATION_NAME, block_until_done=True)
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)
+
+    @pytest.mark.skip(
+        reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
     )
-    await ops_test.model.integrate(
-        relation1=f"{NRF_APPLICATION_NAME}:{AUTH_DATABASE_RELATION_NAME}",
-        relation2=DB_APPLICATION_NAME,
-    )
-    await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
+    @pytest.mark.abort_on_fail
+    async def test_restore_database_and_wait_for_active_status(
+        self, ops_test: OpsTest, build_and_deploy_charm
+    ):
+        assert ops_test.model
+        await self._deploy_mongodb(ops_test)
+        await ops_test.model.integrate(
+            relation1=f"{NRF_APPLICATION_NAME}:{COMMON_DATABASE_RELATION_NAME}",
+            relation2=DB_APPLICATION_NAME,
+        )
+        await ops_test.model.integrate(
+            relation1=f"{NRF_APPLICATION_NAME}:{AUTH_DATABASE_RELATION_NAME}",
+            relation2=DB_APPLICATION_NAME,
+        )
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=1000)
