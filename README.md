@@ -7,9 +7,9 @@ A Charmed Operator for SD-Core's Unified Data Repository (UDR) component for K8s
 
 ```bash
 juju deploy mongodb-k8s --trust --channel=6/beta
-juju deploy sdcore-nrf-k8s --channel=edge
-juju deploy sdcore-udr-k8s --channel=edge
-juju deploy self-signed-certificates --channel=beta
+juju deploy sdcore-nrf-k8s --channel=1.4/edge
+juju deploy sdcore-udr-k8s --channel=1.4/edge
+juju deploy self-signed-certificates
 juju integrate mongodb-k8s sdcore-nrf-k8s
 juju integrate mongodb-k8s sdcore-udr-k8s:common_database
 juju integrate mongodb-k8s sdcore-udr-k8s:auth_database
