@@ -47,8 +47,8 @@ class TestUDROperatorCharm:
 
     @pytest.fixture(scope="module")
     @pytest.mark.abort_on_fail
-    async def build_and_deploy_charm(self, ops_test: OpsTest):
-        charm = await ops_test.build_charm(".")
+    async def deploy(self, ops_test: OpsTest, request):
+        charm = Path(request.config.getoption("--charm_path")).resolve()
         resources = {"udr-image": METADATA["resources"]["udr-image"]["upstream-source"]}
         assert ops_test.model
         await ops_test.model.deploy(
@@ -97,13 +97,13 @@ class TestUDROperatorCharm:
         )
 
     @pytest.mark.abort_on_fail
-    async def test_wait_for_blocked_status(self, ops_test: OpsTest, setup, build_and_deploy_charm):
+    async def test_wait_for_blocked_status(self, ops_test: OpsTest, setup, deploy):
         assert ops_test.model
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=1000)
 
     @pytest.mark.abort_on_fail
     async def test_relate_and_wait_for_idle(
-        self, ops_test: OpsTest, setup, build_and_deploy_charm
+        self, ops_test: OpsTest, setup, deploy
     ):
         assert ops_test.model
         await ops_test.model.integrate(
@@ -128,7 +128,7 @@ class TestUDROperatorCharm:
 
     @pytest.mark.abort_on_fail
     async def test_remove_nrf_and_wait_for_blocked_status(
-        self, ops_test: OpsTest, setup, build_and_deploy_charm
+        self, ops_test: OpsTest, setup, deploy
     ):
         assert ops_test.model
         await ops_test.model.remove_application(NRF_APPLICATION_NAME, block_until_done=True)
@@ -136,7 +136,7 @@ class TestUDROperatorCharm:
 
     @pytest.mark.abort_on_fail
     async def test_restore_nrf_and_wait_for_active_status(
-        self, ops_test: OpsTest, setup, build_and_deploy_charm
+        self, ops_test: OpsTest, setup, deploy
     ):
         assert ops_test.model
         await self._deploy_sdcore_nrf_operator(ops_test)
@@ -151,7 +151,7 @@ class TestUDROperatorCharm:
 
     @pytest.mark.abort_on_fail
     async def test_remove_tls_and_wait_for_blocked_status(
-        self, ops_test: OpsTest, build_and_deploy_charm
+        self, ops_test: OpsTest, deploy
     ):
         assert ops_test.model
         await ops_test.model.remove_application(TLS_PROVIDER_CHARM_NAME, block_until_done=True)
@@ -159,7 +159,7 @@ class TestUDROperatorCharm:
 
     @pytest.mark.abort_on_fail
     async def test_restore_tls_and_wait_for_active_status(
-        self, ops_test: OpsTest, build_and_deploy_charm
+        self, ops_test: OpsTest, deploy
     ):
         assert ops_test.model
         await self._deploy_tls_provider(ops_test)
@@ -173,7 +173,7 @@ class TestUDROperatorCharm:
     )
     @pytest.mark.abort_on_fail
     async def test_remove_database_and_wait_for_blocked_status(
-        self, ops_test: OpsTest, build_and_deploy_charm
+        self, ops_test: OpsTest, deploy
     ):
         assert ops_test.model
         await ops_test.model.remove_application(DB_APPLICATION_NAME, block_until_done=True)
@@ -184,7 +184,7 @@ class TestUDROperatorCharm:
     )
     @pytest.mark.abort_on_fail
     async def test_restore_database_and_wait_for_active_status(
-        self, ops_test: OpsTest, build_and_deploy_charm
+        self, ops_test: OpsTest, deploy
     ):
         assert ops_test.model
         await self._deploy_mongodb(ops_test)
