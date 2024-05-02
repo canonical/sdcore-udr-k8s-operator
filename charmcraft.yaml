@@ -1,3 +1,55 @@
+name: sdcore-udr-k8s
+
+summary: A Charmed Operator for SD-Core's UDR component.
+description: |
+  A Charmed Operator for SD-Core's Unified Data Repository (UDR) component.
+links:
+  website:
+    - https://charmhub.io/sdcore-udr-k8s
+  source:
+    - https://github.com/canonical/sdcore-udr-k8s-operator
+  issues:
+    - https://github.com/canonical/sdcore-udr-k8s-operator/issues
+
+containers:
+  udr:
+    resource: udr-image
+    mounts:
+      - storage: config
+        location: /free5gc/config/
+      - storage: certs
+        location: /support/TLS
+
+requires:
+  common_database:
+    interface: mongodb_client
+  auth_database:
+    interface: mongodb_client
+  fiveg_nrf:
+    interface: fiveg_nrf
+  certificates:
+    interface: tls-certificates
+  logging:
+      interface: loki_push_api
+
+resources:
+  udr-image:
+    type: oci-image
+    description: OCI image for SD-Core's UDR
+    upstream-source: ghcr.io/canonical/sdcore-udr:1.4.0
+
+storage:
+  config:
+    type: filesystem
+    minimum-size: 1M
+  certs:
+    type: filesystem
+    minimum-size: 1M
+
+assumes:
+  - k8s-api
+  - juju >= 3.4
+
 type: charm
 bases:
   - build-on:
