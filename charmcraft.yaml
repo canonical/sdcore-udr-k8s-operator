@@ -36,7 +36,7 @@ resources:
   udr-image:
     type: oci-image
     description: OCI image for SD-Core's UDR
-    upstream-source: ghcr.io/canonical/sdcore-udr:1.4.0
+    upstream-source: ghcr.io/canonical/sdcore-udr:1.4.1
 
 storage:
   config:
