@@ -7,11 +7,14 @@
 import logging
 from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
-from typing import Optional
+from typing import List, Optional
 
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
 from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
 from charms.sdcore_nrf_k8s.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
+from charms.sdcore_webui_k8s.v0.sdcore_config import (  # type: ignore[import]
+    SdcoreConfigRequires,
+)
 from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
     CertificateExpiringEvent,
     TLSCertificatesRequiresV3,
@@ -48,6 +51,7 @@ CSR_NAME = "udr.csr"
 CERTIFICATE_NAME = "udr.pem"
 CERTIFICATE_COMMON_NAME = "udr.sdcore"
 LOGGING_RELATION_NAME = "logging"
+SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
 
 
 class UDROperatorCharm(CharmBase):
@@ -72,6 +76,9 @@ class UDROperatorCharm(CharmBase):
         self._auth_database = DatabaseRequires(
             self, relation_name=AUTH_DATABASE_RELATION_NAME, database_name=AUTH_DATABASE_NAME
         )
+        self._webui_requires = SdcoreConfigRequires(
+            charm=self, relation_name=SDCORE_CONFIG_RELATION_NAME
+        )
         self.unit.set_ports(UDR_SBI_PORT)
         self._certificates = TLSCertificatesRequiresV3(self, TLS_RELATION_NAME)
         self._logging = LogForwarder(charm=self, relation_name=LOGGING_RELATION_NAME)
@@ -91,137 +98,22 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(
             self._certificates.on.certificate_expiring, self._on_certificate_expiring
         )
-
-    def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa C901
-        """Check the unit status and set to Unit when CollectStatusEvent is fired.
-
-        Args:
-            event: CollectStatusEvent
-        """
-        if not self.unit.is_leader():
-            # NOTE: In cases where leader status is lost before the charm is
-            # finished processing all teardown events, this prevents teardown
-            # event code from running. Luckily, for this charm, none of the
-            # teardown code is necessary to perform if we're removing the
-            # charm.
-            event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
-            logger.info("Scaling is not implemented for this charm")
-            return
-
-        for relation in [
-            COMMON_DATABASE_RELATION_NAME,
-            AUTH_DATABASE_RELATION_NAME,
-            NRF_RELATION_NAME,
-            TLS_RELATION_NAME,
-        ]:
-            if not self._relation_created(relation):
-                event.add_status(
-                    BlockedStatus(f"Waiting for the {relation} relation to be created")
-                )
-                logger.info("Waiting for the %s relation to be created", relation)
-                return
-
-        if not self._common_database_is_available():
-            event.add_status(WaitingStatus("Waiting for the common database to be available"))
-            logger.info("Waiting for the common database to be available")
-            return
-
-        if not self._auth_database_is_available():
-            event.add_status(
-                WaitingStatus("Waiting for the authentication database to be available")
-            )
-            logger.info("Waiting for the authentication database to be available")
-            return
-
-        if not self._get_common_database_url():
-            event.add_status(WaitingStatus("Waiting for the common database url to be available"))
-            logger.info("Waiting for the common database url to be available")
-            return
-
-        if not self._get_auth_database_url():
-            event.add_status(WaitingStatus("Waiting for the auth database url to be available"))
-            logger.info("Waiting for the auth database url to be available")
-            return
-
-        if not self._nrf_is_available():
-            event.add_status(WaitingStatus("Waiting for the NRF to be available"))
-            logger.info("Waiting for the NRF to be available")
-            return
-
-        if not self._container.can_connect():
-            event.add_status(WaitingStatus("Waiting for the container to be ready"))
-            logger.info("Waiting for the container to be ready")
-            return
-
-        if not self._storage_is_attached():
-            event.add_status(WaitingStatus("Waiting for the storage to be attached"))
-            logger.info("Waiting for the storage to be attached")
-            return
-
-        if not _get_pod_ip():
-            event.add_status(WaitingStatus("Waiting for pod IP address to be available"))
-            logger.info("Waiting for pod IP address to be available")
-            return
-
-        if self._csr_is_stored() and not self._get_current_provider_certificate():
-            event.add_status(WaitingStatus("Waiting for certificates to be stored"))
-            logger.info("Waiting for certificates to be stored")
-            return
-
-        if not self._udr_service_is_running():
-            event.add_status(WaitingStatus("Waiting for UDR service to start"))
-            logger.info("Waiting for UDR service to start")
-            return
-
-        event.add_status(ActiveStatus())
-
-    def ready_to_configure(self) -> bool:
-        """Return whether the preconditions are met to proceed with the configuration.
-
-        Returns:
-            ready_to_configure: True if all conditions are met else False
-        """
-        for relation in [
-            COMMON_DATABASE_RELATION_NAME,
-            AUTH_DATABASE_RELATION_NAME,
-            NRF_RELATION_NAME,
-            TLS_RELATION_NAME,
-        ]:
-            if not self._relation_created(relation):
-                return False
-
-        if not self._common_database_is_available():
-            return False
-
-        if not self._auth_database_is_available():
-            return False
-
-        if not self._get_common_database_url():
-            return False
-
-        if not self._get_auth_database_url():
-            return False
-
-        if not self._nrf_is_available():
-            return False
-
-        return True
-
-    def _udr_service_is_running(self) -> bool:
-        """Check if the UDR service is running."""
-        try:
-            self._container.get_service(service_name=self._service_name)
-        except ModelError:
-            return False
-        return True
+        self.framework.observe(
+            self._webui_requires.on.webui_url_available,
+            self._configure_udr
+        )
+        self.framework.observe(self.on.sdcore_config_relation_joined, self._configure_udr)
 
     def _configure_udr(self, event: EventBase) -> None:
-        """Handle config changes.
+        """Handle Juju events.
 
-        Manage pebble layer and Juju unit status.
+        This event handler is called for every event that affects the charm state
+        (ex. configuration files, relation data). This method performs a couple of checks
+        to make sure that the workload is ready to be started. Then, it configures the UDR
+        workload and runs the Pebble services.
 
         Args:
-            event: Juju event
+            event (EventBase): Juju event
         """
         if not self.ready_to_configure():
             logger.info("The preconditions for the configuration are not met yet.")
@@ -257,6 +149,149 @@ class UDROperatorCharm(CharmBase):
 
         should_restart = config_update_required or certificate_update_required
         self._configure_pebble(restart=should_restart)
+
+    def _on_collect_unit_status(self, event: CollectStatusEvent):  # noqa C901
+        """Check the unit status and set to Unit when CollectStatusEvent is fired.
+
+        Args:
+            event: CollectStatusEvent
+        """
+        if not self.unit.is_leader():
+            # NOTE: In cases where leader status is lost before the charm is
+            # finished processing all teardown events, this prevents teardown
+            # event code from running. Luckily, for this charm, none of the
+            # teardown code is necessary to perform if we're removing the
+            # charm.
+            event.add_status(BlockedStatus("Scaling is not implemented for this charm"))
+            logger.info("Scaling is not implemented for this charm")
+            return
+
+        if missing_relations := self._missing_relations():
+            event.add_status(
+                BlockedStatus(f"Waiting for {', '.join(missing_relations)} relation(s)")
+            )
+            logger.info("Waiting for %s  relation(s)", ', '.join(missing_relations))
+            return
+
+        if not self._common_database_is_available():
+            event.add_status(WaitingStatus("Waiting for the common database to be available"))
+            logger.info("Waiting for the common database to be available")
+            return
+
+        if not self._auth_database_is_available():
+            event.add_status(
+                WaitingStatus("Waiting for the authentication database to be available")
+            )
+            logger.info("Waiting for the authentication database to be available")
+            return
+
+        if not self._get_common_database_url():
+            event.add_status(WaitingStatus("Waiting for the common database url to be available"))
+            logger.info("Waiting for the common database url to be available")
+            return
+
+        if not self._get_auth_database_url():
+            event.add_status(WaitingStatus("Waiting for the auth database url to be available"))
+            logger.info("Waiting for the auth database url to be available")
+            return
+
+        if not self._nrf_is_available():
+            event.add_status(WaitingStatus("Waiting for the NRF to be available"))
+            logger.info("Waiting for the NRF to be available")
+            return
+
+        if not self._webui_url_is_available:
+            event.add_status(WaitingStatus("Waiting for Webui URL to be available"))
+            logger.info("Waiting for Webui URL to be available")
+            return
+
+        if not self._container.can_connect():
+            event.add_status(WaitingStatus("Waiting for the container to be ready"))
+            logger.info("Waiting for the container to be ready")
+            return
+
+        if not self._storage_is_attached():
+            event.add_status(WaitingStatus("Waiting for the storage to be attached"))
+            logger.info("Waiting for the storage to be attached")
+            return
+
+        if not _get_pod_ip():
+            event.add_status(WaitingStatus("Waiting for pod IP address to be available"))
+            logger.info("Waiting for pod IP address to be available")
+            return
+
+        if self._csr_is_stored() and not self._get_current_provider_certificate():
+            event.add_status(WaitingStatus("Waiting for certificates to be stored"))
+            logger.info("Waiting for certificates to be stored")
+            return
+
+        if not self._udr_service_is_running():
+            event.add_status(WaitingStatus("Waiting for UDR service to start"))
+            logger.info("Waiting for UDR service to start")
+            return
+
+        event.add_status(ActiveStatus())
+
+    def ready_to_configure(self) -> bool:
+        """Return whether the preconditions are met to proceed with the configuration.
+
+        Returns:
+            ready_to_configure: True if all conditions are met else False
+        """
+        if self._missing_relations():
+            return False
+
+        if not self._common_database_is_available():
+            return False
+
+        if not self._auth_database_is_available():
+            return False
+
+        if not self._get_common_database_url():
+            return False
+
+        if not self._get_auth_database_url():
+            return False
+
+        if not self._nrf_is_available():
+            return False
+
+        if not self._webui_url_is_available:
+            return False
+
+        return True
+
+    def _missing_relations(self) -> List[str]:
+        """Return list of missing relations.
+
+        If all the relations are created, it returns an empty list.
+
+        Returns:
+            list: missing relation names.
+        """
+        missing_relations = []
+        for relation in [
+            COMMON_DATABASE_RELATION_NAME,
+            AUTH_DATABASE_RELATION_NAME,
+            NRF_RELATION_NAME,
+            TLS_RELATION_NAME,
+            SDCORE_CONFIG_RELATION_NAME
+        ]:
+            if not self._relation_created(relation):
+                missing_relations.append(relation)
+        return missing_relations
+
+    @property
+    def _webui_url_is_available(self) -> bool:
+        return bool(self._webui_requires.webui_url)
+
+    def _udr_service_is_running(self) -> bool:
+        """Check if the UDR service is running."""
+        try:
+            self._container.get_service(service_name=self._service_name)
+        except ModelError:
+            return False
+        return True
 
     def _on_certificates_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Delete TLS related artifacts and reconfigures workload."""
@@ -400,6 +435,7 @@ class UDROperatorCharm(CharmBase):
             auth_database_url=self._get_auth_database_url(),
             nrf_url=self._nrf.nrf_url,
             scheme="https",
+            webui_uri=self._webui_requires.webui_url,
         )
 
     def _is_config_update_required(self, content: str) -> bool:
@@ -446,6 +482,7 @@ class UDROperatorCharm(CharmBase):
         auth_database_url: str,
         nrf_url: str,
         scheme: str,
+        webui_uri: str,
     ) -> str:
         """Render the config file content.
 
@@ -458,6 +495,7 @@ class UDROperatorCharm(CharmBase):
             auth_database_url (str): Authentication Database URL.
             nrf_url (str): NRF URL.
             scheme (str): SBI interface scheme ("http" or "https")
+            webui_uri (str) : URL of the Webui
 
         Returns:
             str: Config file content.
@@ -473,6 +511,7 @@ class UDROperatorCharm(CharmBase):
             auth_database_url=auth_database_url,
             nrf_url=nrf_url,
             scheme=scheme,
+            webui_uri=webui_uri,
         )
 
     def _config_file_is_written(self) -> bool:

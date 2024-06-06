@@ -10,12 +10,17 @@ juju deploy mongodb-k8s --trust --channel=6/beta
 juju deploy sdcore-nrf-k8s --channel=1.5/edge
 juju deploy sdcore-udr-k8s --channel=1.5/edge
 juju deploy self-signed-certificates
+juju deploy sdcore-webui-k8s --channel=1.5/edge
+
 juju integrate mongodb-k8s sdcore-nrf-k8s
 juju integrate mongodb-k8s sdcore-udr-k8s:common_database
 juju integrate mongodb-k8s sdcore-udr-k8s:auth_database
+juju integrate sdcore-webui-k8s:common_database mongodb-k8s:database
+juju integrate sdcore-webui-k8s:auth_database mongodb-k8s:database
 juju integrate sdcore-nrf-k8s:certificates self-signed-certificates:certificates
 juju integrate sdcore-nrf-k8s:fiveg_nrf sdcore-udr-k8s:fiveg_nrf
 juju integrate sdcore-udr-k8s:certificates self-signed-certificates:certificates
+juju integrate sdcore-udr-k8s:sdcore_config sdcore-webui-k8s:sdcore-config
 ```
 
 ## Image
