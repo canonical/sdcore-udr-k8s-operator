@@ -23,6 +23,9 @@ CERTIFICATES_LIB = (
 STORED_CERTIFICATE = "whatever certificate content"
 STORED_CSR = b"whatever csr content"
 STORED_PRIVATE_KEY = b"whatever key content"
+WEBUI_URL = "sdcore-webui:9876"
+SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
+WEBUI_APPLICATION_NAME = "sdcore-webui-operator"
 TEST_PEBBLE_LAYER = {
     "services": {
         "udr": {
@@ -148,30 +151,50 @@ class TestCharm(unittest.TestCase):
         self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="nrf-operator/0")
         return relation_id
 
+    def _create_sdcore_config_relation(self) -> int:
+        """Create sdcore_config relation to get Webui URL.
+
+        Returns:
+            int: relation id.
+        """
+        relation_id = self.harness.add_relation(
+            relation_name=SDCORE_CONFIG_RELATION_NAME, remote_app="webui-operator"
+        )
+        self.harness.add_relation_unit(
+            relation_id=relation_id, remote_unit_name="webui-operator/0"
+        )
+        return relation_id
+
     def test_given_common_database_relation_not_created_when_pebble_ready_then_status_is_blocked(
         self,
     ):
         self._create_nrf_relation()
-        self.harness.container_pebble_ready(self.container_name)
-        self.harness.evaluate_status()
-        self.assertEqual(
-            self.harness.model.unit.status,
-            BlockedStatus("Waiting for the common_database relation to be created"),
-        )
-
-    def test_given_auth_database_relation_not_created_when_pebble_ready_then_status_is_blocked(
-        self,
-    ):
-        self._create_nrf_relation()
+        self._create_sdcore_config_relation()
         self.harness.add_relation(
-            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="mongodb"
+            relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="mongodb"
         )
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the auth_database relation to be created"),
+            BlockedStatus("Waiting for common_database relation(s)"),
+        )
+
+    def test_given_auth_database_relation_not_created_when_pebble_ready_then_status_is_blocked(
+        self,
+    ):
+        self._create_nrf_relation()
+        self._create_sdcore_config_relation()
+        self._create_certificates_relation()
+        self.harness.add_relation(
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="mongodb"
+        )
+        self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
+        self.assertEqual(
+            self.harness.model.unit.status,
+            BlockedStatus("Waiting for auth_database relation(s)"),
         )
 
     def test_given_fiveg_nrf_relation_not_created_when_pebble_ready_then_status_is_blocked(self):
@@ -182,11 +205,13 @@ class TestCharm(unittest.TestCase):
         self.harness.add_relation(
             relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
         )
+        self._create_sdcore_config_relation()
+        self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the fiveg_nrf relation to be created"),
+            BlockedStatus("Waiting for fiveg_nrf relation(s)")
         )
 
     def test_given_certificates_relation_not_created_when_pebble_ready_then_status_is_blocked(
@@ -199,18 +224,40 @@ class TestCharm(unittest.TestCase):
             relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
         )
         self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self.harness.add_relation(
+            relation_name=SDCORE_CONFIG_RELATION_NAME, remote_app="webui-application"
+        )
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the certificates relation to be created"),
+            BlockedStatus("Waiting for certificates relation(s)"),
         )
 
+    def test_given_sdcore_config_relation_not_created_when_pebble_ready_then_status_is_blocked(
+            self,
+    ):
+        self.harness.add_relation(
+            relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(
+            relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
+        )
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_certificates_relation()
+        self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
+        self.assertEqual(
+            self.harness.model.unit.status,
+            BlockedStatus("Waiting for sdcore_config relation(s)"),
+        )
+
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charm.check_output")
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
     def test_given_udr_charm_in_active_status_when_nrf_relation_breaks_then_status_is_blocked(
-        self, patched_is_resource_created, patched_nrf_url, patched_check_output
+        self, patched_is_resource_created, patched_nrf_url, patched_check_output, patched_webui_url
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -221,9 +268,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = POD_IP
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         nrf_relation_id = self._create_nrf_relation()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self.harness.container_pebble_ready(self.container_name)
@@ -232,14 +281,15 @@ class TestCharm(unittest.TestCase):
         self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the fiveg_nrf relation to be created"),
+            BlockedStatus("Waiting for fiveg_nrf relation(s)"),
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charm.check_output")
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
     def test_given_udr_charm_in_active_status_when_database_relation_breaks_then_status_is_blocked(
-        self, patched_is_resource_created, patched_nrf_url, patched_check_output
+        self, patched_is_resource_created, patched_nrf_url, patched_check_output, patched_webui_url
     ):
 
         self.harness.add_storage(storage_name="certs", attach=True)
@@ -251,9 +301,11 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = POD_IP
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         self._create_certificates_relation()
         self._create_nrf_relation()
+        self._create_sdcore_config_relation()
         self._create_auth_database_relation_and_populate_data()
         database_relation_id = self._create_common_database_relation_and_populate_data()
         self.harness.container_pebble_ready(self.container_name)
@@ -262,7 +314,40 @@ class TestCharm(unittest.TestCase):
         self.harness.evaluate_status()
         self.assertEqual(
             self.harness.model.unit.status,
-            BlockedStatus("Waiting for the common_database relation to be created"),
+            BlockedStatus("Waiting for common_database relation(s)"),
+        )
+
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
+    @patch("charm.check_output")
+    @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
+    @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
+    def test_given_udr_charm_in_active_status_when_sdcore_config_relation_breaks_then_status_is_blocked(  # noqa: E501
+        self, patched_is_resource_created, patched_nrf_url, patched_check_output, patched_webui_url
+    ):
+
+        self.harness.add_storage(storage_name="certs", attach=True)
+        self.harness.add_storage(storage_name="config", attach=True)
+
+        root = self.harness.get_filesystem_root(self.container_name)
+        (root / "support/TLS/udr.pem").write_text(STORED_CERTIFICATE)
+
+        patched_check_output.return_value = POD_IP
+        patched_is_resource_created.return_value = True
+        patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
+
+        self._create_certificates_relation()
+        self._create_nrf_relation()
+        sdcore_config_relation_id = self._create_sdcore_config_relation()
+        self._create_auth_database_relation_and_populate_data()
+        self._create_common_database_relation_and_populate_data()
+        self.harness.container_pebble_ready(self.container_name)
+
+        self.harness.remove_relation(sdcore_config_relation_id)
+        self.harness.evaluate_status()
+        self.assertEqual(
+            self.harness.model.unit.status,
+            BlockedStatus("Waiting for sdcore_config relation(s)"),
         )
 
     def test_given_relations_created_but_common_database_not_available_when_pebble_ready_then_status_is_waiting(  # noqa: E501
@@ -274,6 +359,7 @@ class TestCharm(unittest.TestCase):
         self.harness.add_relation(
             relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
         )
+        self._create_sdcore_config_relation()
         self._create_nrf_relation()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
@@ -294,6 +380,7 @@ class TestCharm(unittest.TestCase):
         self.harness.add_relation(
             relation_name=AUTH_DATABASE_RELATION_NAME, remote_app="some_db_app"
         )
+        self._create_sdcore_config_relation()
         self._create_nrf_relation()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
@@ -311,6 +398,7 @@ class TestCharm(unittest.TestCase):
         self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
+        self._create_sdcore_config_relation()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
@@ -318,16 +406,39 @@ class TestCharm(unittest.TestCase):
             self.harness.model.unit.status, WaitingStatus("Waiting for the NRF to be available")
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
-    def test_given_relations_created_and_database_available_and_nrf_available_but_storage_not_attached_when_pebble_ready_then_then_status_is_waiting(  # noqa: E501
-        self, patched_is_resource_created, patched_nrf_url
+    def test_given_webui_url_not_available_when_pebble_ready_then_status_is_waiting(
+        self, patched_is_resource_created, patched_nrf_url, patched_webui_url
     ):
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = ""
+        self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
+        self._create_sdcore_config_relation()
+        self._create_certificates_relation()
+        self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
+        self.assertEqual(
+            self.harness.model.unit.status, WaitingStatus("Waiting for Webui URL to be available")
+        )
+
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
+    @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
+    @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
+    def test_given_relations_created_and_database_available_nrf_available_and_webui_available_but_storage_not_attached_when_pebble_ready_then_then_status_is_waiting(  # noqa: E501
+        self, patched_is_resource_created, patched_nrf_url, patched_webui_url
+    ):
+        patched_is_resource_created.return_value = True
+        patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
         self._create_nrf_relation()
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
+        self._create_sdcore_config_relation()
         self._create_certificates_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
@@ -335,14 +446,16 @@ class TestCharm(unittest.TestCase):
             self.harness.model.unit.status, WaitingStatus("Waiting for the storage to be attached")
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charm.check_output")
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
-    def test_given_relations_created_and_database_available_and_nrf_available_but_certificate_not_stored_when_pebble_ready_then_then_status_is_waiting(  # noqa: E501
+    def test_given_relations_created_and_database_available_and_nrf_available_and_webui_available_but_certificate_not_stored_when_pebble_ready_then_then_status_is_waiting(  # noqa: E501
         self,
         patched_is_resource_created,
         patched_nrf_url,
         patched_check_output,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="config", attach=True)
         self.harness.add_storage(storage_name="certs", attach=True)
@@ -350,11 +463,13 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = POD_IP
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         self.harness.add_relation(relation_name=NRF_RELATION_NAME, remote_app="some_nrf_app")
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
 
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
@@ -362,6 +477,7 @@ class TestCharm(unittest.TestCase):
             self.harness.model.unit.status, WaitingStatus("Waiting for certificates to be stored")
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
     @patch("charm.generate_csr")
@@ -376,6 +492,7 @@ class TestCharm(unittest.TestCase):
         patch_generate_csr,
         patch_get_assigned_certificates,
         patched_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -392,6 +509,7 @@ class TestCharm(unittest.TestCase):
         ]
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         (root / "support/TLS/udr.pem").write_text(STORED_CERTIFICATE)
         (root / "free5gc/config/udrcfg.yaml").write_text("Dummy content")
@@ -400,6 +518,7 @@ class TestCharm(unittest.TestCase):
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
@@ -409,6 +528,7 @@ class TestCharm(unittest.TestCase):
                 (root / "free5gc/config/udrcfg.yaml").read_text(), expected_content.strip()
             )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charm.check_output")
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
@@ -417,6 +537,7 @@ class TestCharm(unittest.TestCase):
         patched_is_resource_created,
         patched_nrf_url,
         patched_check_output,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -431,6 +552,7 @@ class TestCharm(unittest.TestCase):
         patched_check_output.return_value = POD_IP
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
         self._create_nrf_relation()
         self._create_certificates_relation()
         self._create_common_database_relation_and_populate_data()
@@ -442,6 +564,7 @@ class TestCharm(unittest.TestCase):
             (root / "free5gc/config/udrcfg.yaml").stat().st_mtime, config_modification_time
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("ops.model.Container.restart")
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
@@ -458,6 +581,7 @@ class TestCharm(unittest.TestCase):
         patch_get_assigned_certificates,
         patched_nrf_url,
         patch_restart,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -474,6 +598,7 @@ class TestCharm(unittest.TestCase):
         ]
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         (root / "support/TLS/udr.pem").write_text(STORED_CERTIFICATE)
         (root / "free5gc/config/udrcfg.yaml").write_text("Dummy content")
@@ -482,12 +607,66 @@ class TestCharm(unittest.TestCase):
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
 
         patch_restart.assert_called_with(self.container_name)
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
+    @patch("ops.model.Container.restart")
+    @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
+    @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
+    @patch("charm.generate_csr")
+    @patch("charm.check_output")
+    @patch("charm.generate_private_key")
+    @patch("charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.is_resource_created")
+    def test_given_udr_service_already_configured_and_webui_url_is_different_from_the_newly_generated_config_when_pebble_ready_then_udr_service_is_restarted(  # noqa: E501
+        self,
+        patched_is_resource_created,
+        patch_generate_private_key,
+        patch_check_output,
+        patch_generate_csr,
+        patch_get_assigned_certificates,
+        patched_nrf_url,
+        patch_restart,
+        patched_webui_url,
+    ):
+        self.harness.add_storage(storage_name="certs", attach=True)
+        self.harness.add_storage(storage_name="config", attach=True)
+        root = self.harness.get_filesystem_root(self.container_name)
+
+        patch_generate_private_key.return_value = STORED_PRIVATE_KEY
+        patch_check_output.return_value = POD_IP
+        patch_generate_csr.return_value = STORED_CSR
+        provider_certificate = Mock(ProviderCertificate)
+        provider_certificate.certificate = STORED_CERTIFICATE
+        provider_certificate.csr = STORED_CSR.decode()
+        patch_get_assigned_certificates.return_value = [
+            provider_certificate,
+        ]
+        patched_is_resource_created.return_value = True
+        patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = "mywebui:3435"
+
+        (root / "support/TLS/udr.pem").write_text(STORED_CERTIFICATE)
+        (root / "free5gc/config/udrcfg.yaml").write_text(
+            self._read_file("tests/unit/resources/expected_udrcfg.yaml")
+        )
+
+        self._create_nrf_relation()
+        self._create_common_database_relation_and_populate_data()
+        self._create_auth_database_relation_and_populate_data()
+        self._create_certificates_relation()
+        self._create_sdcore_config_relation()
+        self.harness.container_pebble_ready(self.container_name)
+        self.harness.evaluate_status()
+        self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
+
+        patch_restart.assert_called_with(self.container_name)
+
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("ops.model.Container.restart")
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
@@ -504,6 +683,7 @@ class TestCharm(unittest.TestCase):
         patch_get_assigned_certificates,
         patched_nrf_url,
         patch_restart,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -520,6 +700,7 @@ class TestCharm(unittest.TestCase):
         ]
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         (root / "support/TLS/udr.pem").write_text(STORED_CERTIFICATE)
         (root / "free5gc/config/udrcfg.yaml").write_text(
@@ -530,12 +711,14 @@ class TestCharm(unittest.TestCase):
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
 
         patch_restart.assert_not_called()
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
     @patch("charm.generate_csr")
@@ -550,6 +733,7 @@ class TestCharm(unittest.TestCase):
         patch_generate_csr,
         patch_get_assigned_certificates,
         patched_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -567,6 +751,7 @@ class TestCharm(unittest.TestCase):
         ]
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         certificate = "whatever certificate content"
         (root / "support/TLS/udr.pem").write_text(certificate)
@@ -578,6 +763,7 @@ class TestCharm(unittest.TestCase):
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(self.harness.model.unit.status, ActiveStatus(""))
@@ -585,6 +771,7 @@ class TestCharm(unittest.TestCase):
         updated_plan = self.harness.get_container_pebble_plan("udr").to_dict()
         self.assertEqual(TEST_PEBBLE_LAYER, updated_plan)
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
     @patch("charm.generate_csr")
@@ -599,6 +786,7 @@ class TestCharm(unittest.TestCase):
         patch_generate_csr,
         patch_get_assigned_certificates,
         patched_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -615,6 +803,7 @@ class TestCharm(unittest.TestCase):
         ]
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         certificate = "whatever certificate content"
         (root / "support/TLS/udr.pem").write_text(certificate)
@@ -622,6 +811,7 @@ class TestCharm(unittest.TestCase):
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(
@@ -629,6 +819,7 @@ class TestCharm(unittest.TestCase):
             ActiveStatus(),
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
     @patch("charm.generate_csr")
@@ -643,6 +834,7 @@ class TestCharm(unittest.TestCase):
         patch_generate_csr,
         patch_get_assigned_certificates,
         patched_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -658,6 +850,7 @@ class TestCharm(unittest.TestCase):
         ]
         patched_is_resource_created.return_value = True
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
 
         certificate = "whatever certificate content"
         (root / "support/TLS/udr.pem").write_text(certificate)
@@ -665,6 +858,7 @@ class TestCharm(unittest.TestCase):
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(
@@ -672,6 +866,7 @@ class TestCharm(unittest.TestCase):
             WaitingStatus("Waiting for pod IP address to be available"),
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch(f"{CERTIFICATES_LIB}.get_assigned_certificates")
     @patch("charm.generate_csr")
@@ -686,6 +881,7 @@ class TestCharm(unittest.TestCase):
         patch_generate_csr,
         patch_get_assigned_certificates,
         patched_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -709,6 +905,7 @@ class TestCharm(unittest.TestCase):
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.container_pebble_ready(self.container_name)
         self.harness.evaluate_status()
         self.assertEqual(
@@ -716,12 +913,18 @@ class TestCharm(unittest.TestCase):
             WaitingStatus("Waiting for pod IP address to be available"),
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charm.generate_csr")
     @patch("charm.generate_private_key")
     @patch("charm.check_output")
     def test_given_can_connect_when_on_certificates_relation_created_then_private_key_is_generated(
-        self, patch_check_output, patch_generate_private_key, patch_generate_csr, patched_nrf_url
+        self,
+        patch_check_output,
+        patch_generate_private_key,
+        patch_generate_csr,
+        patched_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="config", attach=True)
         self.harness.add_storage(storage_name="certs", attach=True)
@@ -731,10 +934,12 @@ class TestCharm(unittest.TestCase):
         patch_check_output.return_value = POD_IP
         patch_generate_csr.return_value = STORED_CSR
         patched_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
         self._create_nrf_relation()
         self._create_common_database_relation_and_populate_data()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.set_can_connect(container=self.container_name, val=True)
         self.harness.container_pebble_ready(self.container_name)
 
@@ -758,11 +963,12 @@ class TestCharm(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             (root / "support/TLS/udr.csr").read_text()
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charm.check_output")
     @patch("charm.generate_csr")
     def test_given_private_key_exists_when_on_certificates_relation_joined_then_csr_is_generated(
-        self, patch_generate_csr, patch_check_output, patch_nrf_url
+        self, patch_generate_csr, patch_check_output, patch_nrf_url, patched_webui_url
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -774,17 +980,20 @@ class TestCharm(unittest.TestCase):
         patch_generate_csr.return_value = STORED_CSR
         patch_check_output.return_value = POD_IP
         patch_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
         self.harness.set_can_connect(container=self.container_name, val=True)
         self._create_common_database_relation_and_populate_data()
         self._create_nrf_relation()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.set_can_connect(container=self.container_name, val=True)
 
         self.harness.container_pebble_ready(container_name=self.container_name)
 
         self.assertEqual((root / "support/TLS/udr.csr").read_text(), STORED_CSR.decode())
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charm.check_output")
     @patch(f"{CERTIFICATES_LIB}.request_certificate_creation")
@@ -795,6 +1004,7 @@ class TestCharm(unittest.TestCase):
         patch_request_certificate_creation,
         patch_check_output,
         patch_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="config", attach=True)
         self.harness.add_storage(storage_name="certs", attach=True)
@@ -804,20 +1014,27 @@ class TestCharm(unittest.TestCase):
         patch_generate_csr.return_value = STORED_CSR
         patch_check_output.return_value = POD_IP
         patch_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
         self.harness.set_can_connect(container=self.container_name, val=True)
         self._create_common_database_relation_and_populate_data()
         self._create_nrf_relation()
         self._create_auth_database_relation_and_populate_data()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         patch_request_certificate_creation.assert_called_with(
             certificate_signing_request=STORED_CSR
         )
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
     @patch("charm.check_output")
     @patch(f"{CERTIFICATES_LIB}.request_certificate_creation")
     def test_given_cert_already_stored_when_on_certificates_relation_joined_then_cert_is_not_requested(  # noqa: E501
-        self, patch_request_certificate_creation, patch_check_output, patch_nrf_url
+        self,
+        patch_request_certificate_creation,
+        patch_check_output,
+        patch_nrf_url,
+        patched_webui_url,
     ):
         self.harness.add_storage(storage_name="config", attach=True)
         self.harness.add_storage(storage_name="certs", attach=True)
@@ -830,6 +1047,7 @@ class TestCharm(unittest.TestCase):
         self.harness.set_can_connect(container=self.container_name, val=True)
         patch_check_output.return_value = POD_IP
         patch_nrf_url.return_value = VALID_NRF_URL
+        patched_webui_url.return_value = WEBUI_URL
         self._create_common_database_relation_and_populate_data()
         self._create_nrf_relation()
         self._create_auth_database_relation_and_populate_data()
@@ -837,6 +1055,7 @@ class TestCharm(unittest.TestCase):
         self.harness.container_pebble_ready(container_name=self.container_name)
         patch_request_certificate_creation.assert_not_called()
 
+    @patch("charms.sdcore_webui_k8s.v0.sdcore_config.SdcoreConfigRequires.webui_url", new_callable=PropertyMock)  # noqa: E501
     @patch("charm.generate_csr")
     @patch("charm.generate_private_key")
     @patch("charms.sdcore_nrf_k8s.v0.fiveg_nrf.NRFRequires.nrf_url", new_callable=PropertyMock)
@@ -846,9 +1065,10 @@ class TestCharm(unittest.TestCase):
         self,
         patch_get_assigned_certificates,
         patch_check_output,
-        patch_nrf_url,
+        _,
         patch_generate_private_key,
         patch_generate_csr,
+        __,
     ):
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
@@ -869,6 +1089,7 @@ class TestCharm(unittest.TestCase):
         self._create_auth_database_relation_and_populate_data()
         self._create_nrf_relation()
         self._create_certificates_relation()
+        self._create_sdcore_config_relation()
         self.harness.set_can_connect(container=self.container_name, val=True)
         self.harness.container_pebble_ready(container_name=self.container_name)
         self.assertEqual((root / "support/TLS/udr.pem").read_text(), STORED_CERTIFICATE)

@@ -74,6 +74,10 @@ class TestUDROperatorCharm:
             relation2=f"{TLS_CHARM_NAME}:certificates",
         )
         await ops_test.model.integrate(
+            relation1=f"{APPLICATION_NAME}:sdcore_config",
+            relation2=f"{WEBUI_CHARM_NAME}:sdcore-config",
+        )
+        await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:logging", relation2=GRAFANA_AGENT_CHARM_NAME
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
@@ -89,6 +93,22 @@ class TestUDROperatorCharm:
         assert ops_test.model
         await self._deploy_nrf(ops_test)
         await ops_test.model.integrate(relation1=APPLICATION_NAME, relation2=NRF_CHARM_NAME)
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
+
+    @pytest.mark.abort_on_fail
+    async def test_remove_webui_and_wait_for_blocked_status(self, ops_test: OpsTest, deploy):
+        assert ops_test.model
+        await ops_test.model.remove_application(WEBUI_CHARM_NAME, block_until_done=True)
+        await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)
+
+    @pytest.mark.abort_on_fail
+    async def test_restore_webui_and_wait_for_active_status(self, ops_test: OpsTest, deploy):
+        assert ops_test.model
+        await self._deploy_webui(ops_test)
+        await ops_test.model.integrate(
+            relation1=f"{APPLICATION_NAME}:sdcore_config",
+            relation2=f"{WEBUI_CHARM_NAME}:sdcore-config",
+        )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 
     @pytest.mark.abort_on_fail
