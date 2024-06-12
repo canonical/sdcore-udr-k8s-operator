@@ -78,7 +78,12 @@ class TestUDROperatorCharm:
             relation2=f"{WEBUI_CHARM_NAME}:sdcore-config",
         )
         await ops_test.model.integrate(
-            relation1=f"{APPLICATION_NAME}:logging", relation2=GRAFANA_AGENT_CHARM_NAME
+            relation1=f"{APPLICATION_NAME}:logging",
+            relation2=f"{GRAFANA_AGENT_CHARM_NAME}:logging-provider"
+        )
+        await ops_test.model.integrate(
+            relation1=f"{APPLICATION_NAME}:metrics-endpoint",
+            relation2=f"{GRAFANA_AGENT_CHARM_NAME}:metrics-endpoint"
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 

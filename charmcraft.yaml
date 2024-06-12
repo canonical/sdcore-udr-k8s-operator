@@ -34,6 +34,9 @@ requires:
   sdcore_config:
     interface: sdcore_config
 
+provides:
+  metrics-endpoint:
+    interface: prometheus_scrape
 
 resources:
   udr-image:
