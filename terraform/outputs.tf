@@ -35,3 +35,10 @@ output "sdcore_config_endpoint" {
   description = "Name of the endpoint used to integrate with the Webui."
   value       = "sdcore_config"
 }
+
+# Provided integration endpoints
+
+output "metrics_endpoint" {
+  description = "Exposes the Prometheus metrics endpoint providing telemetry about the UDR instance."
+  value       = "metrics-endpoint"
+}
