@@ -56,6 +56,7 @@ CERTIFICATE_NAME = "udr.pem"
 CERTIFICATE_COMMON_NAME = "udr.sdcore"
 LOGGING_RELATION_NAME = "logging"
 SDCORE_CONFIG_RELATION_NAME = "sdcore_config"
+WORKLOAD_VERSION_FILE_NAME = "/etc/workload-version"
 
 
 class UDROperatorCharm(CharmBase):
@@ -110,10 +111,7 @@ class UDROperatorCharm(CharmBase):
         self.framework.observe(
             self._certificates.on.certificate_expiring, self._on_certificate_expiring
         )
-        self.framework.observe(
-            self._webui_requires.on.webui_url_available,
-            self._configure_udr
-        )
+        self.framework.observe(self._webui_requires.on.webui_url_available, self._configure_udr)
         self.framework.observe(self.on.sdcore_config_relation_joined, self._configure_udr)
 
     def _configure_udr(self, event: EventBase) -> None:
@@ -182,7 +180,7 @@ class UDROperatorCharm(CharmBase):
             event.add_status(
                 BlockedStatus(f"Waiting for {', '.join(missing_relations)} relation(s)")
             )
-            logger.info("Waiting for %s  relation(s)", ', '.join(missing_relations))
+            logger.info("Waiting for %s  relation(s)", ", ".join(missing_relations))
             return
 
         if not self._common_database_is_available():
@@ -221,6 +219,8 @@ class UDROperatorCharm(CharmBase):
             event.add_status(WaitingStatus("Waiting for the container to be ready"))
             logger.info("Waiting for the container to be ready")
             return
+
+        self.unit.set_workload_version(self._get_workload_version())
 
         if not self._storage_is_attached():
             event.add_status(WaitingStatus("Waiting for the storage to be attached"))
@@ -287,7 +287,7 @@ class UDROperatorCharm(CharmBase):
             AUTH_DATABASE_RELATION_NAME,
             NRF_RELATION_NAME,
             TLS_RELATION_NAME,
-            SDCORE_CONFIG_RELATION_NAME
+            SDCORE_CONFIG_RELATION_NAME,
         ]:
             if not self._relation_created(relation):
                 missing_relations.append(relation)
@@ -432,6 +432,24 @@ class UDROperatorCharm(CharmBase):
         self._container.push(path=f"{CERTS_DIR_PATH}/{CSR_NAME}", source=csr.decode().strip())
         logger.info("Pushed CSR to workload")
 
+    def _get_workload_version(self) -> str:
+        """Return the workload version.
+
+        Checks for the presence of /etc/workload-version file
+        and if present, returns the contents of that file. If
+        the file is not present, an empty string is returned.
+
+        Returns:
+            string: A human readable string representing the
+            version of the workload
+        """
+        if self._container.exists(path=f"{WORKLOAD_VERSION_FILE_NAME}"):
+            version_file_content = self._container.pull(
+                path=f"{WORKLOAD_VERSION_FILE_NAME}"
+            ).read()
+            return version_file_content
+        return ""
+
     def _generate_udr_config_file(self) -> str:
         """Handle creation of the UDR config file based on a given template.
 
@@ -473,9 +491,7 @@ class UDROperatorCharm(CharmBase):
         """
         plan = self._container.get_plan()
         if plan.services != self._pebble_layer.services:
-            self._container.add_layer(
-                self._container_name, self._pebble_layer, combine=True
-            )
+            self._container.add_layer(self._container_name, self._pebble_layer, combine=True)
             self._container.replan()
             logger.info("New layer added: %s", self._pebble_layer)
         if restart:

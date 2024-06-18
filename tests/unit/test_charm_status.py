@@ -1,6 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import os
 from subprocess import CalledProcessError
 from unittest.mock import Mock
 
@@ -334,3 +335,35 @@ class TestCharmStatus(UDRUnitTestFixtures):
         assert self.harness.model.unit.status == WaitingStatus(
             "Waiting for pod IP address to be available"
         )
+
+    def test_given_no_workload_version_file_when_container_can_connect_then_workload_version_not_set(  # noqa: E501
+        self,
+        create_auth_database_relation_and_populate_data,
+        create_common_database_relation_and_populate_data,
+        create_nrf_relation_and_set_nrf_url,
+        create_webui_relation_and_set_webui_url,
+        nrf_relation_id,
+        certificates_relation_id,
+    ):
+        self.harness.container_pebble_ready(container_name=CONTAINER_NAME)
+        self.harness.evaluate_status()
+        version = self.harness.get_workload_version()
+        assert version == ""
+
+    def test_given_workload_version_file_when_container_can_connect_then_workload_version_set(
+        self,
+        create_auth_database_relation_and_populate_data,
+        create_common_database_relation_and_populate_data,
+        create_nrf_relation_and_set_nrf_url,
+        create_webui_relation_and_set_webui_url,
+        nrf_relation_id,
+        certificates_relation_id,
+    ):
+        expected_version = "1.2.3"
+        root = self.harness.get_filesystem_root(CONTAINER_NAME)
+        os.mkdir(f"{root}/etc")
+        (root / "etc/workload-version").write_text(expected_version)
+        self.harness.container_pebble_ready(container_name=CONTAINER_NAME)
+        self.harness.evaluate_status()
+        version = self.harness.get_workload_version()
+        assert version == expected_version
