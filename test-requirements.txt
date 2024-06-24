@@ -24,7 +24,7 @@ charset-normalizer==3.3.2
     # via requests
 codespell==2.3.0
     # via -r test-requirements.in
-coverage[toml]==7.5.3
+coverage[toml]==7.5.4
     # via -r test-requirements.in
 cryptography==42.0.8
     # via paramiko
@@ -149,7 +149,7 @@ rpds-py==0.18.0
     # via referencing
 rsa==4.9
     # via google-auth
-ruff==0.4.9
+ruff==0.4.10
     # via -r test-requirements.in
 six==1.16.0
     # via
