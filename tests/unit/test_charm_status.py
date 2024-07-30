@@ -23,7 +23,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         auth_database_relation_id,
         certificates_relation_id,
         nrf_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
         self.harness.evaluate_status()
@@ -37,7 +37,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         common_database_relation_id,
         certificates_relation_id,
         nrf_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
         self.harness.evaluate_status()
@@ -51,7 +51,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         auth_database_relation_id,
         common_database_relation_id,
         certificates_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
         self.harness.evaluate_status()
@@ -63,7 +63,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         auth_database_relation_id,
         common_database_relation_id,
         nrf_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
         self.harness.evaluate_status()
@@ -83,7 +83,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == BlockedStatus(
-            "Waiting for sdcore_config relation(s)"
+            "Waiting for sdcore-config relation(s)"
         )
 
     def test_given_relations_created_and_database_available_nrf_available_and_webui_available_but_storage_not_attached_when_pebble_ready_then_then_status_is_waiting(  # noqa: E501
@@ -91,7 +91,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
@@ -107,7 +107,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         nrf_relation_id,
         certificates_relation_id,
     ):
@@ -136,7 +136,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         common_database_relation_id,
         certificates_relation_id,
     ):
@@ -167,8 +167,8 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
-        webui_relation_id,
+        create_nms_relation_and_set_webui_url,
+        nms_relation_id,
         certificates_relation_id,
     ):
         self.mock_check_output.return_value = TEST_POD_IP
@@ -185,11 +185,11 @@ class TestCharmStatus(UDRUnitTestFixtures):
         self.harness.evaluate_status()
         assert self.harness.model.unit.status == ActiveStatus()
 
-        self.harness.remove_relation(webui_relation_id)
+        self.harness.remove_relation(nms_relation_id)
 
         self.harness.evaluate_status()
         assert self.harness.model.unit.status == BlockedStatus(
-            "Waiting for sdcore_config relation(s)"
+            "Waiting for sdcore-config relation(s)"
         )
 
     def test_given_relations_created_but_common_database_not_available_when_pebble_ready_then_status_is_waiting(  # noqa: E501
@@ -198,7 +198,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         common_database_relation_id,
         nrf_relation_id,
         certificates_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.mock_resource_created.return_value = False
 
@@ -215,7 +215,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         common_database_relation_id,
         nrf_relation_id,
         certificates_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.mock_resource_created.return_value = True
 
@@ -232,7 +232,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_common_database_relation_and_populate_data,
         nrf_relation_id,
         certificates_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
 
@@ -247,7 +247,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
         certificates_relation_id,
-        webui_relation_id,
+        nms_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
 
@@ -262,7 +262,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.mock_check_output.return_value = TEST_POD_IP
@@ -282,7 +282,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.mock_check_output.return_value = TEST_POD_IP
@@ -308,7 +308,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.container_pebble_ready(CONTAINER_NAME)
@@ -324,7 +324,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.mock_check_output.side_effect = CalledProcessError(cmd="", returncode=123)
@@ -341,7 +341,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         nrf_relation_id,
         certificates_relation_id,
     ):
@@ -355,7 +355,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         nrf_relation_id,
         certificates_relation_id,
     ):

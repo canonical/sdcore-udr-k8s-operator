@@ -41,7 +41,7 @@ class TestCharmWorkloadConfiguration(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -71,7 +71,7 @@ class TestCharmWorkloadConfiguration(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -100,7 +100,7 @@ class TestCharmWorkloadConfiguration(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -126,8 +126,8 @@ class TestCharmWorkloadConfiguration(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
-        webui_relation_id,
+        create_nms_relation_and_set_webui_url,
+        nms_relation_id,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -147,8 +147,8 @@ class TestCharmWorkloadConfiguration(UDRUnitTestFixtures):
         )
 
         self.harness.update_relation_data(
-            relation_id=webui_relation_id,
-            app_or_unit="whatever-webui",
+            relation_id=nms_relation_id,
+            app_or_unit="whatever-nms",
             key_values={"webui_url": "something new"},
         )
 
@@ -160,7 +160,7 @@ class TestCharmWorkloadConfiguration(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -189,7 +189,7 @@ class TestCharmWorkloadConfiguration(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
