@@ -74,8 +74,8 @@ class TestUDROperatorCharm:
             relation2=f"{TLS_CHARM_NAME}:certificates",
         )
         await ops_test.model.integrate(
-            relation1=f"{APPLICATION_NAME}:sdcore-config",
-            relation2=f"{NMS_CHARM_NAME}:sdcore-config",
+            relation1=f"{APPLICATION_NAME}:sdcore_config",
+            relation2=f"{NMS_CHARM_NAME}:sdcore_config",
         )
         await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:logging",
@@ -111,8 +111,8 @@ class TestUDROperatorCharm:
         assert ops_test.model
         await self._deploy_nms(ops_test)
         await ops_test.model.integrate(
-            relation1=f"{APPLICATION_NAME}:sdcore-config",
-            relation2=f"{NMS_CHARM_NAME}:sdcore-config",
+            relation1=f"{APPLICATION_NAME}:sdcore_config",
+            relation2=f"{NMS_CHARM_NAME}:sdcore_config",
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 

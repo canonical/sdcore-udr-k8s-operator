@@ -83,7 +83,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
         self.harness.evaluate_status()
 
         assert self.harness.model.unit.status == BlockedStatus(
-            "Waiting for sdcore-config relation(s)"
+            "Waiting for sdcore_config relation(s)"
         )
 
     def test_given_relations_created_and_database_available_nrf_available_and_webui_available_but_storage_not_attached_when_pebble_ready_then_then_status_is_waiting(  # noqa: E501
@@ -189,7 +189,7 @@ class TestCharmStatus(UDRUnitTestFixtures):
 
         self.harness.evaluate_status()
         assert self.harness.model.unit.status == BlockedStatus(
-            "Waiting for sdcore-config relation(s)"
+            "Waiting for sdcore_config relation(s)"
         )
 
     def test_given_relations_created_but_common_database_not_available_when_pebble_ready_then_status_is_waiting(  # noqa: E501
