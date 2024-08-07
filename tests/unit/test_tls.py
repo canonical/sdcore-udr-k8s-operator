@@ -4,10 +4,10 @@
 from unittest.mock import Mock
 
 import pytest
-from fixtures import UDRUnitTestFixtures
 from ops import ActiveStatus
 
 from lib.charms.tls_certificates_interface.v3.tls_certificates import ProviderCertificate
+from tests.unit.fixtures import UDRUnitTestFixtures
 
 CONTAINER_NAME = "udr"
 TEST_POD_IP = b"1.2.3.4"

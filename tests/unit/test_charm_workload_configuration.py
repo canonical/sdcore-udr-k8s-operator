@@ -3,11 +3,12 @@
 
 from unittest.mock import Mock
 
-from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
+from charms.tls_certificates_interface.v3.tls_certificates import (
     ProviderCertificate,
 )
-from fixtures import UDRUnitTestFixtures
 from ops import ActiveStatus
+
+from tests.unit.fixtures import UDRUnitTestFixtures
 
 CONTAINER_NAME = "udr"
 TEST_POD_IP = b"1.2.3.4"

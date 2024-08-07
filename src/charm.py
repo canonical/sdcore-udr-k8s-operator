@@ -9,16 +9,16 @@ from ipaddress import IPv4Address
 from subprocess import CalledProcessError, check_output
 from typing import List, Optional
 
-from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires  # type: ignore[import]
-from charms.loki_k8s.v1.loki_push_api import LogForwarder  # type: ignore[import]
-from charms.prometheus_k8s.v0.prometheus_scrape import (  # type: ignore[import]
+from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+from charms.loki_k8s.v1.loki_push_api import LogForwarder
+from charms.prometheus_k8s.v0.prometheus_scrape import (
     MetricsEndpointProvider,
 )
-from charms.sdcore_nrf_k8s.v0.fiveg_nrf import NRFRequires  # type: ignore[import]
-from charms.sdcore_webui_k8s.v0.sdcore_config import (  # type: ignore[import]
+from charms.sdcore_nrf_k8s.v0.fiveg_nrf import NRFRequires
+from charms.sdcore_webui_k8s.v0.sdcore_config import (
     SdcoreConfigRequires,
 )
-from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
+from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateExpiringEvent,
     TLSCertificatesRequiresV3,
     generate_csr,
@@ -33,7 +33,8 @@ from ops import (
     RelationBrokenEvent,
     WaitingStatus,
 )
-from ops.charm import CharmBase, EventBase
+from ops.charm import CharmBase
+from ops.framework import EventBase
 from ops.main import main
 from ops.pebble import Layer, PathError
 
@@ -456,8 +457,14 @@ class UDROperatorCharm(CharmBase):
         Returns:
             content (str): desired config file content
         """
+        if not (pod_ip := _get_pod_ip()):
+            return ""
+        if not self._nrf.nrf_url:
+            return ""
+        if not self._webui_requires.webui_url:
+            return ""
         return self._render_config_file(
-            udr_ip_address=_get_pod_ip(),  # type: ignore[arg-type]
+            udr_ip_address=pod_ip,
             udr_sbi_port=UDR_SBI_PORT,
             common_database_name=COMMON_DATABASE_NAME,
             common_database_url=self._get_common_database_url(),
