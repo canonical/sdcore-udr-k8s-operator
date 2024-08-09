@@ -23,7 +23,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -42,7 +42,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -69,7 +69,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -91,7 +91,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -114,7 +114,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -137,7 +137,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -162,7 +162,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -188,7 +188,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
@@ -211,7 +211,7 @@ class TestTLS(UDRUnitTestFixtures):
         create_auth_database_relation_and_populate_data,
         create_common_database_relation_and_populate_data,
         create_nrf_relation_and_set_nrf_url,
-        create_webui_relation_and_set_webui_url,
+        create_nms_relation_and_set_webui_url,
         certificates_relation_id,
     ):
         self.harness.set_can_connect(container=CONTAINER_NAME, val=True)
