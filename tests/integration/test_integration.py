@@ -79,11 +79,11 @@ class TestUDROperatorCharm:
         )
         await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:logging",
-            relation2=f"{GRAFANA_AGENT_CHARM_NAME}:logging-provider"
+            relation2=f"{GRAFANA_AGENT_CHARM_NAME}:logging-provider",
         )
         await ops_test.model.integrate(
             relation1=f"{APPLICATION_NAME}:metrics-endpoint",
-            relation2=f"{GRAFANA_AGENT_CHARM_NAME}:metrics-endpoint"
+            relation2=f"{GRAFANA_AGENT_CHARM_NAME}:metrics-endpoint",
         )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 
@@ -126,9 +126,7 @@ class TestUDROperatorCharm:
     async def test_restore_tls_and_wait_for_active_status(self, ops_test: OpsTest, deploy):
         assert ops_test.model
         await self._deploy_tls_provider(ops_test)
-        await ops_test.model.integrate(
-            relation1=APPLICATION_NAME, relation2=TLS_CHARM_NAME
-        )
+        await ops_test.model.integrate(relation1=APPLICATION_NAME, relation2=TLS_CHARM_NAME)
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 
     @pytest.mark.skip(
