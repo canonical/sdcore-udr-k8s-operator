@@ -425,9 +425,7 @@ class UDROperatorCharm(CharmBase):
         """
         plan = self._container.get_plan()
         if plan.services != self._pebble_layer.services:
-            self._container.add_layer(
-                self._container_name, self._pebble_layer, combine=True
-            )
+            self._container.add_layer(self._container_name, self._pebble_layer, combine=True)
             self._container.replan()
             logger.info("New layer added: %s", self._pebble_layer)
         if restart:

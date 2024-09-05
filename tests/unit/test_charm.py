@@ -6,11 +6,12 @@ from subprocess import CalledProcessError
 from unittest.mock import Mock, PropertyMock, patch
 
 import yaml
-from charm import NRF_RELATION_NAME, TLS_RELATION_NAME, UDROperatorCharm
 from charms.tls_certificates_interface.v3.tls_certificates import (  # type: ignore[import]
     ProviderCertificate,
 )
 from ops import ActiveStatus, BlockedStatus, WaitingStatus, testing
+
+from charm import NRF_RELATION_NAME, TLS_RELATION_NAME, UDROperatorCharm
 
 COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
@@ -175,7 +176,6 @@ class TestCharm(unittest.TestCase):
         )
 
     def test_given_fiveg_nrf_relation_not_created_when_pebble_ready_then_status_is_blocked(self):
-
         self.harness.add_relation(
             relation_name=COMMON_DATABASE_RELATION_NAME, remote_app="some_db_app"
         )
@@ -241,7 +241,6 @@ class TestCharm(unittest.TestCase):
     def test_given_udr_charm_in_active_status_when_database_relation_breaks_then_status_is_blocked(
         self, patched_is_resource_created, patched_nrf_url, patched_check_output
     ):
-
         self.harness.add_storage(storage_name="certs", attach=True)
         self.harness.add_storage(storage_name="config", attach=True)
 
