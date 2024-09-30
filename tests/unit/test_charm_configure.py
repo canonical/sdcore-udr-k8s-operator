@@ -39,11 +39,11 @@ class TestCharmConfigure(UDRUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/free5gc/config/",
-                src=temp_dir,
+                source=temp_dir,
             )
             certs_mount = scenario.Mount(
                 location="/support/TLS",
-                src=temp_dir,
+                source=temp_dir,
             )
             container = scenario.Container(
                 name="udr",
@@ -62,18 +62,18 @@ class TestCharmConfigure(UDRUnitTestFixtures):
                 leader=True,
             )
             self.mock_db_fetch_relation_data.return_value = {
-                common_database.relation_id: {"uris": "http://dummy"},
-                auth_database.relation_id: {"uris": "http://dummy"},
+                common_database.id: {"uris": "http://dummy"},
+                auth_database.id: {"uris": "http://dummy"},
             }
             self.mock_nrf_url.return_value = "https://nrf-example.com:1234"
             self.mock_sdcore_config_webui_url.return_value = "some-webui:7890"
             self.mock_check_output.return_value = b"1.2.3.4"
             provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.relation_id
+                relation_id=certificates_relation.id
             )
             self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             with open(f"{temp_dir}/udrcfg.yaml", "r") as config_file:
                 actual_config = config_file.read()
@@ -109,11 +109,11 @@ class TestCharmConfigure(UDRUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/free5gc/config/",
-                src=temp_dir,
+                source=temp_dir,
             )
             certs_mount = scenario.Mount(
                 location="/support/TLS",
-                src=temp_dir,
+                source=temp_dir,
             )
             container = scenario.Container(
                 name="udr",
@@ -135,12 +135,12 @@ class TestCharmConfigure(UDRUnitTestFixtures):
             self.mock_sdcore_config_webui_url.return_value = "some-webui:7890"
             self.mock_check_output.return_value = b"1.2.3.4"
             provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.relation_id
+                relation_id=certificates_relation.id
             )
             self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
             self.mock_db_fetch_relation_data.return_value = {
-                common_database.relation_id: {"uris": "http://dummy"},
-                auth_database.relation_id: {"uris": "http://dummy"},
+                common_database.id: {"uris": "http://dummy"},
+                auth_database.id: {"uris": "http://dummy"},
             }
             with open("tests/unit/resources/expected_udrcfg.yaml", "r") as expected_config_file:
                 expected_config = expected_config_file.read()
@@ -148,7 +148,7 @@ class TestCharmConfigure(UDRUnitTestFixtures):
                 config_file.write(expected_config.strip())
             config_modification_time = os.stat(temp_dir + "/udrcfg.yaml").st_mtime
 
-            self.ctx.run(container.pebble_ready_event, state_in)
+            self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
             with open(f"{temp_dir}/udrcfg.yaml", "r") as config_file:
                 actual_config = config_file.read()
@@ -185,11 +185,11 @@ class TestCharmConfigure(UDRUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/free5gc/config/",
-                src=temp_dir,
+                source=temp_dir,
             )
             certs_mount = scenario.Mount(
                 location="/support/TLS",
-                src=temp_dir,
+                source=temp_dir,
             )
             container = scenario.Container(
                 name="udr",
@@ -211,17 +211,18 @@ class TestCharmConfigure(UDRUnitTestFixtures):
             self.mock_sdcore_config_webui_url.return_value = "some-webui:7890"
             self.mock_check_output.return_value = b"1.2.3.4"
             provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.relation_id
+                relation_id=certificates_relation.id
             )
             self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
             self.mock_db_fetch_relation_data.return_value = {
-                common_database.relation_id: {"uris": "http://dummy"},
-                auth_database.relation_id: {"uris": "http://dummy"},
+                common_database.id: {"uris": "http://dummy"},
+                auth_database.id: {"uris": "http://dummy"},
             }
 
-            state_out = self.ctx.run(container.pebble_ready_event, state_in)
+            state_out = self.ctx.run(self.ctx.on.pebble_ready(container), state_in)
 
-            assert state_out.containers[0].layers == {
+            container = state_out.get_container("udr")
+            assert container.layers == {
                 "udr": Layer(
                     {
                         "summary": "UDR pebble layer",
