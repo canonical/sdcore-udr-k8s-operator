@@ -3,42 +3,22 @@
 
 output "app_name" {
   description = "Name of the deployed application."
-  value       = juju_application.sdcore-udr-k8s.name
+  value       = juju_application.udr.name
 }
 
-output "common_database_endpoint" {
-  description = "Name of the endpoint to integrate with MongoDB for common_database using mongodb_client interface."
-  value       = "common_database"
+output "requires" {
+  value = {
+    common_database = "common_database"
+    auth_database   = "auth_database"
+    fiveg_nrf       = "fiveg_nrf"
+    certificates    = "certificates"
+    logging         = "logging"
+    sdcore_config   = "sdcore_config"
+  }
 }
 
-output "auth_database_endpoint" {
-  description = "Name of the endpoint to integrate with MongoDB for auth_database using mongodb_client interface."
-  value       = "auth_database"
-}
-
-output "fiveg_nrf_endpoint" {
-  description = "Name of the endpoint to to integrate with NRF using fiveg_nrf interface."
-  value       = "fiveg_nrf"
-}
-
-output "certificates_endpoint" {
-  description = "Name of the endpoint to get the X.509 certificate using tls-certificates interface."
-  value       = "certificates"
-}
-
-output "logging_endpoint" {
-  description = "Name of the endpoint used to integrate with the Logging provider."
-  value       = "logging"
-}
-
-output "sdcore_config_endpoint" {
-  description = "Name of the endpoint used to integrate with the NMS."
-  value       = "sdcore_config"
-}
-
-# Provided integration endpoints
-
-output "metrics_endpoint" {
-  description = "Exposes the Prometheus metrics endpoint providing telemetry about the UDR instance."
-  value       = "metrics-endpoint"
+output "provides" {
+  value = {
+    metrics = "metrics-endpoint"
+  }
 }
