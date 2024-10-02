@@ -18,7 +18,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             leader=False,
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == BlockedStatus("Scaling is not implemented for this charm")
 
@@ -32,7 +32,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             leader=True,
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == BlockedStatus(
             "Waiting for common_database, auth_database, fiveg_nrf, certificates, sdcore_config relation(s)"  # noqa: E501
@@ -55,7 +55,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             leader=True,
         )
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == BlockedStatus(
             "Waiting for common_database, auth_database, fiveg_nrf, sdcore_config relation(s)"
@@ -88,7 +88,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self.mock_nrf_url.return_value = None
         self.mock_sdcore_config_webui_url.return_value = None
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == BlockedStatus(
             "Waiting for common_database, auth_database relation(s)"
@@ -136,7 +136,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self.mock_sdcore_config_webui_url.return_value = None
         self.mock_db_is_resource_created.return_value = False
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus(
             "Waiting for the common database to be available"
@@ -184,7 +184,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self.mock_sdcore_config_webui_url.return_value = None
         self.mock_db_is_resource_created.return_value = True
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus("Waiting for the NRF to be available")
 
@@ -230,7 +230,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self.mock_sdcore_config_webui_url.return_value = None
         self.mock_db_is_resource_created.return_value = True
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus("Waiting for Webui URL to be available")
 
@@ -276,7 +276,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self.mock_sdcore_config_webui_url.return_value = "some-webui:7890"
         self.mock_db_is_resource_created.return_value = True
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus("Waiting for the container to be ready")
 
@@ -322,7 +322,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self.mock_sdcore_config_webui_url.return_value = "some-webui:7890"
         self.mock_db_is_resource_created.return_value = True
 
-        state_out = self.ctx.run("collect_unit_status", state_in)
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
         assert state_out.unit_status == WaitingStatus("Waiting for the storage to be attached")
 
@@ -352,11 +352,11 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/free5gc/config/",
-                src=temp_dir,
+                source=temp_dir,
             )
             certs_mount = scenario.Mount(
                 location="/support/TLS/",
-                src=temp_dir,
+                source=temp_dir,
             )
             container = scenario.Container(
                 name="udr",
@@ -378,7 +378,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             self.mock_sdcore_config_webui_url.return_value = "http://webui.url"
             self.mock_check_output.return_value = b""
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == WaitingStatus(
                 "Waiting for pod IP address to be available"
@@ -410,11 +410,11 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/free5gc/config/",
-                src=temp_dir,
+                source=temp_dir,
             )
             certs_mount = scenario.Mount(
                 location="/support/TLS/",
-                src=temp_dir,
+                source=temp_dir,
             )
             container = scenario.Container(
                 name="udr",
@@ -437,7 +437,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             self.mock_check_output.return_value = b"1.2.3.4"
             self.mock_get_assigned_certificate.return_value = (None, None)
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == WaitingStatus(
                 "Waiting for certificates to be available"
@@ -469,11 +469,11 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/free5gc/config/",
-                src=temp_dir,
+                source=temp_dir,
             )
             certs_mount = scenario.Mount(
                 location="/support/TLS/",
-                src=temp_dir,
+                source=temp_dir,
             )
             container = scenario.Container(
                 name="udr",
@@ -495,11 +495,11 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             self.mock_sdcore_config_webui_url.return_value = "http://webui.url"
             self.mock_check_output.return_value = b"1.2.3.4"
             provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.relation_id
+                relation_id=certificates_relation.id
             )
             self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == WaitingStatus("Waiting for UDR service to start")
 
@@ -529,18 +529,18 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             )
             config_mount = scenario.Mount(
                 location="/free5gc/config/",
-                src=temp_dir,
+                source=temp_dir,
             )
             certs_mount = scenario.Mount(
                 location="/support/TLS/",
-                src=temp_dir,
+                source=temp_dir,
             )
             container = scenario.Container(
                 name="udr",
                 can_connect=True,
                 mounts={"config": config_mount, "certs": certs_mount},
                 layers={"udr": Layer({"services": {"udr": {}}})},
-                service_status={"udr": ServiceStatus.ACTIVE},
+                service_statuses={"udr": ServiceStatus.ACTIVE},
             )
             state_in = scenario.State(
                 containers=[container],
@@ -557,11 +557,11 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             self.mock_sdcore_config_webui_url.return_value = "http://webui.url"
             self.mock_check_output.return_value = b"1.2.3.4"
             provider_certificate, private_key = example_cert_and_key(
-                relation_id=certificates_relation.relation_id
+                relation_id=certificates_relation.id
             )
             self.mock_get_assigned_certificate.return_value = (provider_certificate, private_key)
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.unit_status == ActiveStatus()
 
@@ -586,7 +586,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             )
             workload_version_mount = scenario.Mount(
                 location="/etc",
-                src=tempdir,
+                source=tempdir,
             )
             container = scenario.Container(
                 name="udr", can_connect=True, mounts={"workload-version": workload_version_mount}
@@ -603,7 +603,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
                 ],
             )
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.workload_version == ""
 
@@ -628,7 +628,7 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
             )
             workload_version_mount = scenario.Mount(
                 location="/etc",
-                src=tempdir,
+                source=tempdir,
             )
             expected_version = "1.2.3"
             with open(f"{tempdir}/workload-version", "w") as f:
@@ -648,6 +648,6 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
                 ],
             )
 
-            state_out = self.ctx.run("collect_unit_status", state_in)
+            state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
 
             assert state_out.workload_version == expected_version
