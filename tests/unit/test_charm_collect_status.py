@@ -4,7 +4,7 @@
 
 import tempfile
 
-import scenario
+from ops import testing
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from ops.pebble import Layer, ServiceStatus
 
@@ -14,7 +14,7 @@ from tests.unit.fixtures import UDRUnitTestFixtures
 
 class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_not_leader_when_collect_unit_status_then_status_is_blocked(self):
-        state_in = scenario.State(
+        state_in = testing.State(
             leader=False,
         )
 
@@ -23,11 +23,11 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         assert state_out.unit_status == BlockedStatus("Scaling is not implemented for this charm")
 
     def test_given_relations_not_created_when_collect_unit_status_then_status_is_blocked(self):
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=True,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             leader=True,
         )
@@ -41,15 +41,15 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_nms_relation_not_created_when_collect_unit_status_then_status_is_blocked(
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
         )
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=True,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             relations=[certificates_relation],
             leader=True,
@@ -64,23 +64,23 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_database_relations_not_created_when_collect_unit_status_then_status_is_blocked(
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
         )
-        nms_relation = scenario.Relation(
+        nms_relation = testing.Relation(
             endpoint="sdcore_config",
             interface="sdcore_config",
         )
-        nrf_relation = scenario.Relation(
+        nrf_relation = testing.Relation(
             endpoint="fiveg_nrf",
             interface="fiveg_nrf",
         )
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=True,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             relations=[certificates_relation, nms_relation, nrf_relation],
             leader=True,
@@ -97,31 +97,31 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_database_not_available_when_collect_unit_status_then_status_is_waiting(
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
         )
-        nms_relation = scenario.Relation(
+        nms_relation = testing.Relation(
             endpoint="sdcore_config",
             interface="sdcore_config",
         )
-        nrf_relation = scenario.Relation(
+        nrf_relation = testing.Relation(
             endpoint="fiveg_nrf",
             interface="fiveg_nrf",
         )
-        common_database = scenario.Relation(
+        common_database = testing.Relation(
             endpoint="common_database",
             interface="mongodb_client",
         )
-        auth_database = scenario.Relation(
+        auth_database = testing.Relation(
             endpoint="auth_database",
             interface="mongodb_client",
         )
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=True,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             relations=[
                 certificates_relation,
@@ -145,31 +145,31 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_nrf_data_not_available_when_collect_unit_status_then_status_is_waiting(
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
         )
-        nms_relation = scenario.Relation(
+        nms_relation = testing.Relation(
             endpoint="sdcore_config",
             interface="sdcore_config",
         )
-        nrf_relation = scenario.Relation(
+        nrf_relation = testing.Relation(
             endpoint="fiveg_nrf",
             interface="fiveg_nrf",
         )
-        common_database = scenario.Relation(
+        common_database = testing.Relation(
             endpoint="common_database",
             interface="mongodb_client",
         )
-        auth_database = scenario.Relation(
+        auth_database = testing.Relation(
             endpoint="auth_database",
             interface="mongodb_client",
         )
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=True,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             relations=[
                 certificates_relation,
@@ -191,31 +191,31 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_webui_url_not_available_when_collect_unit_status_then_status_is_waiting(
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
         )
-        nms_relation = scenario.Relation(
+        nms_relation = testing.Relation(
             endpoint="sdcore_config",
             interface="sdcore_config",
         )
-        nrf_relation = scenario.Relation(
+        nrf_relation = testing.Relation(
             endpoint="fiveg_nrf",
             interface="fiveg_nrf",
         )
-        common_database = scenario.Relation(
+        common_database = testing.Relation(
             endpoint="common_database",
             interface="mongodb_client",
         )
-        auth_database = scenario.Relation(
+        auth_database = testing.Relation(
             endpoint="auth_database",
             interface="mongodb_client",
         )
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=True,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             relations=[
                 certificates_relation,
@@ -237,31 +237,31 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_cant_connect_to_container_when_collect_unit_status_then_status_is_waiting(
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
         )
-        nms_relation = scenario.Relation(
+        nms_relation = testing.Relation(
             endpoint="sdcore_config",
             interface="sdcore_config",
         )
-        nrf_relation = scenario.Relation(
+        nrf_relation = testing.Relation(
             endpoint="fiveg_nrf",
             interface="fiveg_nrf",
         )
-        common_database = scenario.Relation(
+        common_database = testing.Relation(
             endpoint="common_database",
             interface="mongodb_client",
         )
-        auth_database = scenario.Relation(
+        auth_database = testing.Relation(
             endpoint="auth_database",
             interface="mongodb_client",
         )
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=False,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             relations=[
                 certificates_relation,
@@ -283,31 +283,31 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
     def test_given_storage_not_attached_when_collect_unit_status_then_status_is_waiting(
         self,
     ):
-        certificates_relation = scenario.Relation(
+        certificates_relation = testing.Relation(
             endpoint="certificates",
             interface="tls-certificates",
         )
-        nms_relation = scenario.Relation(
+        nms_relation = testing.Relation(
             endpoint="sdcore_config",
             interface="sdcore_config",
         )
-        nrf_relation = scenario.Relation(
+        nrf_relation = testing.Relation(
             endpoint="fiveg_nrf",
             interface="fiveg_nrf",
         )
-        common_database = scenario.Relation(
+        common_database = testing.Relation(
             endpoint="common_database",
             interface="mongodb_client",
         )
-        auth_database = scenario.Relation(
+        auth_database = testing.Relation(
             endpoint="auth_database",
             interface="mongodb_client",
         )
-        container = scenario.Container(
+        container = testing.Container(
             name="udr",
             can_connect=True,
         )
-        state_in = scenario.State(
+        state_in = testing.State(
             containers=[container],
             relations=[
                 certificates_relation,
@@ -330,40 +330,40 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self,
     ):
         with tempfile.TemporaryDirectory() as temp_dir:
-            certificates_relation = scenario.Relation(
+            certificates_relation = testing.Relation(
                 endpoint="certificates",
                 interface="tls-certificates",
             )
-            nrf_relation = scenario.Relation(
+            nrf_relation = testing.Relation(
                 endpoint="fiveg_nrf",
                 interface="fiveg_nrf",
             )
-            nms_relation = scenario.Relation(
+            nms_relation = testing.Relation(
                 endpoint="sdcore_config",
                 interface="sdcore_config",
             )
-            common_database = scenario.Relation(
+            common_database = testing.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
             )
-            auth_database = scenario.Relation(
+            auth_database = testing.Relation(
                 endpoint="auth_database",
                 interface="mongodb_client",
             )
-            config_mount = scenario.Mount(
+            config_mount = testing.Mount(
                 location="/free5gc/config/",
                 source=temp_dir,
             )
-            certs_mount = scenario.Mount(
+            certs_mount = testing.Mount(
                 location="/support/TLS/",
                 source=temp_dir,
             )
-            container = scenario.Container(
+            container = testing.Container(
                 name="udr",
                 can_connect=True,
                 mounts={"config": config_mount, "certs": certs_mount},
             )
-            state_in = scenario.State(
+            state_in = testing.State(
                 containers=[container],
                 relations=[
                     certificates_relation,
@@ -388,40 +388,40 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self,
     ):
         with tempfile.TemporaryDirectory() as temp_dir:
-            certificates_relation = scenario.Relation(
+            certificates_relation = testing.Relation(
                 endpoint="certificates",
                 interface="tls-certificates",
             )
-            nrf_relation = scenario.Relation(
+            nrf_relation = testing.Relation(
                 endpoint="fiveg_nrf",
                 interface="fiveg_nrf",
             )
-            nms_relation = scenario.Relation(
+            nms_relation = testing.Relation(
                 endpoint="sdcore_config",
                 interface="sdcore_config",
             )
-            common_database = scenario.Relation(
+            common_database = testing.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
             )
-            auth_database = scenario.Relation(
+            auth_database = testing.Relation(
                 endpoint="auth_database",
                 interface="mongodb_client",
             )
-            config_mount = scenario.Mount(
+            config_mount = testing.Mount(
                 location="/free5gc/config/",
                 source=temp_dir,
             )
-            certs_mount = scenario.Mount(
+            certs_mount = testing.Mount(
                 location="/support/TLS/",
                 source=temp_dir,
             )
-            container = scenario.Container(
+            container = testing.Container(
                 name="udr",
                 can_connect=True,
                 mounts={"config": config_mount, "certs": certs_mount},
             )
-            state_in = scenario.State(
+            state_in = testing.State(
                 containers=[container],
                 relations=[
                     certificates_relation,
@@ -447,40 +447,40 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self,
     ):
         with tempfile.TemporaryDirectory() as temp_dir:
-            certificates_relation = scenario.Relation(
+            certificates_relation = testing.Relation(
                 endpoint="certificates",
                 interface="tls-certificates",
             )
-            nrf_relation = scenario.Relation(
+            nrf_relation = testing.Relation(
                 endpoint="fiveg_nrf",
                 interface="fiveg_nrf",
             )
-            nms_relation = scenario.Relation(
+            nms_relation = testing.Relation(
                 endpoint="sdcore_config",
                 interface="sdcore_config",
             )
-            common_database = scenario.Relation(
+            common_database = testing.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
             )
-            auth_database = scenario.Relation(
+            auth_database = testing.Relation(
                 endpoint="auth_database",
                 interface="mongodb_client",
             )
-            config_mount = scenario.Mount(
+            config_mount = testing.Mount(
                 location="/free5gc/config/",
                 source=temp_dir,
             )
-            certs_mount = scenario.Mount(
+            certs_mount = testing.Mount(
                 location="/support/TLS/",
                 source=temp_dir,
             )
-            container = scenario.Container(
+            container = testing.Container(
                 name="udr",
                 can_connect=True,
                 mounts={"config": config_mount, "certs": certs_mount},
             )
-            state_in = scenario.State(
+            state_in = testing.State(
                 containers=[container],
                 relations=[
                     certificates_relation,
@@ -507,42 +507,42 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self,
     ):
         with tempfile.TemporaryDirectory() as temp_dir:
-            certificates_relation = scenario.Relation(
+            certificates_relation = testing.Relation(
                 endpoint="certificates",
                 interface="tls-certificates",
             )
-            nrf_relation = scenario.Relation(
+            nrf_relation = testing.Relation(
                 endpoint="fiveg_nrf",
                 interface="fiveg_nrf",
             )
-            nms_relation = scenario.Relation(
+            nms_relation = testing.Relation(
                 endpoint="sdcore_config",
                 interface="sdcore_config",
             )
-            common_database = scenario.Relation(
+            common_database = testing.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
             )
-            auth_database = scenario.Relation(
+            auth_database = testing.Relation(
                 endpoint="auth_database",
                 interface="mongodb_client",
             )
-            config_mount = scenario.Mount(
+            config_mount = testing.Mount(
                 location="/free5gc/config/",
                 source=temp_dir,
             )
-            certs_mount = scenario.Mount(
+            certs_mount = testing.Mount(
                 location="/support/TLS/",
                 source=temp_dir,
             )
-            container = scenario.Container(
+            container = testing.Container(
                 name="udr",
                 can_connect=True,
                 mounts={"config": config_mount, "certs": certs_mount},
                 layers={"udr": Layer({"services": {"udr": {}}})},
                 service_statuses={"udr": ServiceStatus.ACTIVE},
             )
-            state_in = scenario.State(
+            state_in = testing.State(
                 containers=[container],
                 relations=[
                     certificates_relation,
@@ -569,29 +569,29 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
-            nrf_relation = scenario.Relation(endpoint="fiveg_nrf", interface="fiveg_nrf")
-            certificates_relation = scenario.Relation(
+            nrf_relation = testing.Relation(endpoint="fiveg_nrf", interface="fiveg_nrf")
+            certificates_relation = testing.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            sdcore_config_relation = scenario.Relation(
+            sdcore_config_relation = testing.Relation(
                 endpoint="sdcore_config", interface="sdcore_config"
             )
-            common_database = scenario.Relation(
+            common_database = testing.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
             )
-            auth_database = scenario.Relation(
+            auth_database = testing.Relation(
                 endpoint="auth_database",
                 interface="mongodb_client",
             )
-            workload_version_mount = scenario.Mount(
+            workload_version_mount = testing.Mount(
                 location="/etc",
                 source=tempdir,
             )
-            container = scenario.Container(
+            container = testing.Container(
                 name="udr", can_connect=True, mounts={"workload-version": workload_version_mount}
             )
-            state_in = scenario.State(
+            state_in = testing.State(
                 leader=True,
                 containers=[container],
                 relations=[
@@ -611,32 +611,32 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
         self,
     ):
         with tempfile.TemporaryDirectory() as tempdir:
-            nrf_relation = scenario.Relation(endpoint="fiveg_nrf", interface="fiveg_nrf")
-            certificates_relation = scenario.Relation(
+            nrf_relation = testing.Relation(endpoint="fiveg_nrf", interface="fiveg_nrf")
+            certificates_relation = testing.Relation(
                 endpoint="certificates", interface="tls-certificates"
             )
-            sdcore_config_relation = scenario.Relation(
+            sdcore_config_relation = testing.Relation(
                 endpoint="sdcore_config", interface="sdcore_config"
             )
-            common_database = scenario.Relation(
+            common_database = testing.Relation(
                 endpoint="common_database",
                 interface="mongodb_client",
             )
-            auth_database = scenario.Relation(
+            auth_database = testing.Relation(
                 endpoint="auth_database",
                 interface="mongodb_client",
             )
-            workload_version_mount = scenario.Mount(
+            workload_version_mount = testing.Mount(
                 location="/etc",
                 source=tempdir,
             )
             expected_version = "1.2.3"
             with open(f"{tempdir}/workload-version", "w") as f:
                 f.write(expected_version)
-            container = scenario.Container(
+            container = testing.Container(
                 name="udr", can_connect=True, mounts={"workload-version": workload_version_mount}
             )
-            state_in = scenario.State(
+            state_in = testing.State(
                 leader=True,
                 containers=[container],
                 relations=[
