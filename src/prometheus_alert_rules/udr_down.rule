@@ -1,0 +1,8 @@
+alert: UdrDown
+expr: up == 0
+for: 5m
+labels:
+    severity: critical
+annotations:
+    summary: "UDR availability"
+    description: "UDR is unavailable"
