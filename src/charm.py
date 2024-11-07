@@ -50,7 +50,7 @@ NRF_RELATION_NAME = "fiveg_nrf"
 TLS_RELATION_NAME = "certificates"
 UDR_CONFIG_FILE_NAME = "udrcfg.yaml"
 UDR_SBI_PORT = 29504
-CERTS_DIR_PATH = "/support/TLS"  # Certificate paths are hardcoded in UDR code
+CERTS_DIR_PATH = "/support/TLS"
 PRIVATE_KEY_NAME = "udr.key"
 CERTIFICATE_NAME = "udr.pem"
 CERTIFICATE_COMMON_NAME = "udr.sdcore"
@@ -438,6 +438,8 @@ class UDROperatorCharm(CharmBase):
             nrf_url=self._nrf.nrf_url,
             scheme="https",
             webui_uri=self._webui_requires.webui_url,
+            tls_pem=f"{CERTS_DIR_PATH}/{CERTIFICATE_NAME}",
+            tls_key=f"{CERTS_DIR_PATH}/{PRIVATE_KEY_NAME}"
         )
 
     def _is_config_update_required(self, content: str) -> bool:
@@ -483,6 +485,8 @@ class UDROperatorCharm(CharmBase):
         nrf_url: str,
         scheme: str,
         webui_uri: str,
+        tls_pem: str,
+        tls_key: str,
     ) -> str:
         """Render the config file content.
 
@@ -496,6 +500,8 @@ class UDROperatorCharm(CharmBase):
             nrf_url (str): NRF URL.
             scheme (str): SBI interface scheme ("http" or "https")
             webui_uri (str) : URL of the Webui
+            tls_pem (str): TLS certificate file.
+            tls_key (str): TLS key file.
 
         Returns:
             str: Config file content.
@@ -512,6 +518,8 @@ class UDROperatorCharm(CharmBase):
             nrf_url=nrf_url,
             scheme=scheme,
             webui_uri=webui_uri,
+            tls_pem=tls_pem,
+            tls_key=tls_key,
         )
 
     def _config_file_is_written(self) -> bool:
