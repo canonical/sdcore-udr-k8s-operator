@@ -616,7 +616,7 @@ class UDROperatorCharm(CharmBase):
                         "override": "replace",
                         "startup": "enabled",
                         "command": "/bin/udr "
-                        f"-udrcfg {BASE_CONFIG_PATH}/{UDR_CONFIG_FILE_NAME}",
+                        f"-cfg {BASE_CONFIG_PATH}/{UDR_CONFIG_FILE_NAME}",
                         "environment": self._environment_variables,
                     }
                 },
