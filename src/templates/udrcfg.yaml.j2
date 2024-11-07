@@ -8,6 +8,9 @@ configuration:
     registerIPv4: {{ udr_ip_address }}
     bindingIPv4: 0.0.0.0
     port: {{ udr_sbi_port }}
+    tls:
+      pem: {{ tls_pem }}
+      key: {{ tls_key }}
   mongodb:
     name: {{ common_database_name }}
     url: {{ common_database_url }}
