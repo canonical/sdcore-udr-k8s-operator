@@ -25,5 +25,5 @@ juju integrate sdcore-udr-k8s:sdcore_config sdcore-nms-k8s:sdcore_config
 
 ## Image
 
-- **udr**: `ghcr.io/canonical/sdcore-udr:1.4.1`
+- **udr**: `ghcr.io/canonical/sdcore-udr:1.6.1`
 
