@@ -204,4 +204,7 @@ class TestUDROperatorCharm:
         await ops_test.model.integrate(
             relation1=f"{NMS_CHARM_NAME}:auth_database", relation2=DATABASE_CHARM_NAME
         )
+        await ops_test.model.integrate(
+            relation1=f"{NMS_CHARM_NAME}:webui_database", relation2=DATABASE_CHARM_NAME
+        )
         await ops_test.model.integrate(relation1=NMS_CHARM_NAME, relation2=TLS_CHARM_NAME)
