@@ -143,6 +143,14 @@ class TestUDROperatorCharm:
     async def test_restore_database_and_wait_for_active_status(self, ops_test: OpsTest, deploy):
         assert ops_test.model
         await self._deploy_mongodb(ops_test)
+        await ops_test.model.integrate(
+            relation1=f"{APPLICATION_NAME}:{COMMON_DATABASE_RELATION_NAME}",
+            relation2=DATABASE_CHARM_NAME,
+        )
+        await ops_test.model.integrate(
+            relation1=f"{APPLICATION_NAME}:{AUTH_DATABASE_RELATION_NAME}",
+            relation2=DATABASE_CHARM_NAME,
+        )
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 
     @staticmethod
