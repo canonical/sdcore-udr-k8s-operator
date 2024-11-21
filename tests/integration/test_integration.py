@@ -15,7 +15,7 @@ METADATA = yaml.safe_load(Path("./charmcraft.yaml").read_text())
 APPLICATION_NAME = METADATA["name"]
 
 DATABASE_CHARM_NAME = "mongodb-k8s"
-DATABASE_CHARM_CHANNEL = "6/beta"
+DATABASE_CHARM_CHANNEL = "6/stable"
 NRF_CHARM_NAME = "sdcore-nrf-k8s"
 NRF_CHARM_CHANNEL = "1.5/edge"
 NMS_CHARM_NAME = "sdcore-nms-k8s"
@@ -131,18 +131,14 @@ class TestUDROperatorCharm:
         await ops_test.model.integrate(relation1=NRF_CHARM_NAME, relation2=TLS_CHARM_NAME)
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="active", timeout=300)
 
-    @pytest.mark.skip(
-        reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
-    )
+
     @pytest.mark.abort_on_fail
     async def test_remove_database_and_wait_for_blocked_status(self, ops_test: OpsTest, deploy):
         assert ops_test.model
         await ops_test.model.remove_application(DATABASE_CHARM_NAME, block_until_done=True)
         await ops_test.model.wait_for_idle(apps=[APPLICATION_NAME], status="blocked", timeout=60)
 
-    @pytest.mark.skip(
-        reason="Bug in MongoDB: https://github.com/canonical/mongodb-k8s-operator/issues/218"
-    )
+
     @pytest.mark.abort_on_fail
     async def test_restore_database_and_wait_for_active_status(self, ops_test: OpsTest, deploy):
         assert ops_test.model
