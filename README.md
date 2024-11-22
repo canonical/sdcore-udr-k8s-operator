@@ -6,7 +6,7 @@ A Charmed Operator for Aether SD-Core's Unified Data Repository (UDR) component 
 ## Usage
 
 ```bash
-juju deploy mongodb-k8s --trust --channel=6/beta
+juju deploy mongodb-k8s --trust --channel=6/stable
 juju deploy sdcore-nrf-k8s --channel=1.5/edge
 juju deploy sdcore-udr-k8s --channel=1.5/edge
 juju deploy self-signed-certificates
