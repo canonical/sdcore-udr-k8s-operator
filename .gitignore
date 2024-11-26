@@ -24,6 +24,7 @@ build/
 # Crash log files
 crash.log
 crash.*.log
+juju-crashdump-*
 
 # Exclude all .tfvars files, which are likely to contain sensitive data, such as
 # password, private keys, and other secrets. These should not be part of version
