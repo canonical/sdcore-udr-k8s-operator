@@ -675,10 +675,6 @@ class UDROperatorCharm(CharmBase):
             dict: environment variables
         """
         return {
-            "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
-            "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
-            "GRPC_TRACE": "all",
-            "GRPC_VERBOSITY": "debug",
             "MANAGED_BY_CONFIG_POD": "true",
             "POD_IP": _get_pod_ip(),
         }

@@ -233,10 +233,6 @@ class TestCharmConfigure(UDRUnitTestFixtures):
                                 "override": "replace",
                                 "command": "/bin/udr -cfg /free5gc/config/udrcfg.yaml",
                                 "environment": {
-                                    "GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
-                                    "GRPC_GO_LOG_SEVERITY_LEVEL": "info",
-                                    "GRPC_TRACE": "all",
-                                    "GRPC_VERBOSITY": "debug",
                                     "MANAGED_BY_CONFIG_POD": "true",
                                     "POD_IP": "1.2.3.4",
                                 },
