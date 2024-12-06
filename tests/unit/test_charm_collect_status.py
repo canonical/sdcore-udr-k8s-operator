@@ -22,6 +22,22 @@ class TestCharmCollectStatus(UDRUnitTestFixtures):
 
         assert state_out.unit_status == BlockedStatus("Scaling is not implemented for this charm")
 
+    def test_given_invalid_log_level_config_when_collect_unit_status_then_status_is_blocked(
+        self,
+    ):
+        container = testing.Container(name="udr", can_connect=True)
+        state_in = testing.State(
+            leader=True,
+            config={"log-level": "invalid"},
+            containers={container},
+        )
+
+        state_out = self.ctx.run(self.ctx.on.collect_unit_status(), state_in)
+
+        assert state_out.unit_status == BlockedStatus(
+            "The following configurations are not valid: ['log-level']"
+        )
+
     def test_given_relations_not_created_when_collect_unit_status_then_status_is_blocked(self):
         container = testing.Container(
             name="udr",
