@@ -645,6 +645,7 @@ class UDROperatorCharm(CharmBase):
             "GRPC_VERBOSITY": "debug",
             "MANAGED_BY_CONFIG_POD": "true",
             "POD_IP": _get_pod_ip(),
+            "GIN_MODE": "release",
         }
 
     def _relation_created(self, relation_name: str) -> bool:
