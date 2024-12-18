@@ -28,6 +28,7 @@ COMMON_DATABASE_RELATION_NAME = "common_database"
 AUTH_DATABASE_RELATION_NAME = "auth_database"
 NRF_RELATION_NAME = "fiveg_nrf"
 TLS_RELATION_NAME = "certificates"
+SDCORE_CHARMS_BASE = "ubuntu@24.04"
 
 
 class TestUDROperatorCharm:
@@ -189,6 +190,7 @@ class TestUDROperatorCharm:
             application_name=NRF_CHARM_NAME,
             channel=NRF_CHARM_CHANNEL,
             trust=True,
+            base=SDCORE_CHARMS_BASE,
         )
         await ops_test.model.integrate(relation1=NRF_CHARM_NAME, relation2=DATABASE_CHARM_NAME)
         await ops_test.model.integrate(relation1=NRF_CHARM_NAME, relation2=TLS_CHARM_NAME)
@@ -201,6 +203,7 @@ class TestUDROperatorCharm:
             NMS_CHARM_NAME,
             application_name=NMS_CHARM_NAME,
             channel=NMS_CHARM_CHANNEL,
+            base=SDCORE_CHARMS_BASE,
         )
         await ops_test.model.integrate(
             relation1=f"{NMS_CHARM_NAME}:common_database", relation2=DATABASE_CHARM_NAME
