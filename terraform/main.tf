@@ -9,6 +9,7 @@ resource "juju_application" "udr" {
     name     = "sdcore-udr-k8s"
     channel  = var.channel
     revision = var.revision
+    base     = var.base
   }
 
   config      = var.config
